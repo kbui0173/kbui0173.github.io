@@ -1,7 +1,7 @@
 ---
 title: "Exhaustive ARIMA Modeling for CPI Forecasting"
 description: "Exhaustive ARIMA model search for Australian CPI forecasting using expanding window cross-validation"
-date: "2025-12-25"
+date: "2025-11-28"
 categories: [Time-Series, Quantitative Finance]
 image: rolling_window.JPG
 ---
