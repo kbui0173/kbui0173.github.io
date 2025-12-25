@@ -1,0 +1,29 @@
+---
+title: ""
+about:
+  template: jolla
+  image: assets/Khanh.jpg
+  image-shape: round
+  image-width: 30em
+  links:
+    - icon: github
+      text: GitHub
+      href: https://github.com/YOUR-GITHUB
+    - icon: linkedin
+      text: LinkedIn
+      href: https://linkedin.com/in/YOUR-LINKEDIN
+    - icon: envelope
+      text: Email
+      href: mailto:your-email@example.com
+    - icon: file-earmark-pdf
+      text: Resume
+      href: resume/resume.pdf
+---
+
+# Khanh N. (Alex) Bui
+
+#### Time Series | Machine Learning | Portfolio Optimization
+
+I'm a Data Science major at The University of Sydney, currently in my third year and considering pursuing Honours in Data Science. My passion lies in time series analysis, machine learning, and portfolio optimization. Read more about me [**here**](about/index.qmd).
+
+Feel free to explore my [**projects**](projects/index.qmd) and [**blog posts**](blog/posts/welcome/index.qmd) to see what I've been working on!

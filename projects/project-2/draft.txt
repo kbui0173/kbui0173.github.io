@@ -1,0 +1,501 @@
+---
+title: "Project 2: Markov-Switching Stock Prediction for Major Tech Tickers"
+description: "Markov-Switching Stock Prediction for Major ech tickers"
+date: "2025-12-4"
+categories: [r, statistics, data-analysis]
+tools: [r, rstudio, ggplot2, dplyr, tidymodels, rmarkdown]
+status: "in-development"
+---
+
+```{r setup, include=FALSE}
+#| label: setup
+#| include: false
+
+# Load required libraries
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(lubridate)
+library(caret)
+library(randomForest)
+library(xgboost)
+library(knitr)
+library(rmarkdown)
+
+# Set global options
+options(scipen = 999)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+theme_set(theme_minimal())
+```
+
+## Overview 
+
+
+## Fetching Stock Prices. 
+
+First, we are going to fetch stock data for major tech companies from 2000 to present: Apple (AAPL), Tesla (TSLA), Nvidia (NVDA), and AMD. These represent key players in the technology sector and provide an interesting dataset spanning over two decades for analysis and modeling.
+
+```{r}
+#| code-fold: true
+#| code-summary: Fetching Index Prices
+
+# Load required library (install with: install.packages("quantmod") if needed)
+library(quantmod)
+
+# Get major indices: ASX200 (^AXJO), S&P500 (^GSPC), VNINDEX (^VNINDEX) from Yahoo Finance
+indices <- c("^AXJO", "^GSPC", "^VNINDEX")
+quantmod::getSymbols(indices, src = "yahoo", from = "2000-01-01", to = Sys.Date())
+
+# Extract adjusted close prices and merge
+indices_data <- merge(quantmod::Ad(`^AXJO`), quantmod::Ad(`^GSPC`), all = TRUE)
+indices_data <- merge(indices_data, quantmod::Ad(`^VNINDEX`), all = TRUE)
+
+# Rename columns to clear names
+colnames(indices_data) <- c("ASX200.Adjusted", "SP500.Adjusted", "VNINDEX.Adjusted")
+
+# Create data frame with date column
+indices_df <- data.frame(
+  date = index(indices_data),
+  ASX200.Adjusted = as.numeric(indices_data$ASX200.Adjusted),
+  SP500.Adjusted  = as.numeric(indices_data$SP500.Adjusted),
+  VNINDEX.Adjusted = as.numeric(indices_data$VNINDEX.Adjusted)
+)
+
+# Display first few rows
+head(indices_df)
+
+# Save as CSV file
+write.csv(indices_df, "indices_2000_present.csv", row.names = FALSE)
+
+```
+
+Above, you may see how I use the library `quantmod` to fetch these stock data and notice that I only use **Adjusted Closing Price**. Since I don't want this code to run every time so I am going to comment this out and use only the dowloaded `tech__stocks_2000_present.csv` from now on. 
+
+Let's have a glimpse over what we have fetched in the following nice scrollable table created using `library(DT)` in `R`. The one thing I love about using Quarto Document is that you can present nice tables like these in your document. 
+
+```{r}
+#| code-fold: true 
+#| code-summary: Scrollable table for stock prices
+
+# Read the CSV file
+library(readr)
+library(DT)
+library(dplyr)
+
+tech_stocks <- read_csv("tech_stocks_2000_present.csv")
+
+# Round numeric columns (except date) to 3 decimal points
+tech_stocks_rounded <- tech_stocks %>%
+  mutate(across(where(is.numeric), ~round(., 3)))
+
+# Show 5 rows at a time but make the table vertically scrollable with all rows (no paging)
+datatable(
+  tech_stocks_rounded,
+  options = list(
+    pageLength = 5,
+    scrollY = 300,
+    scrollX = TRUE,
+    paging = FALSE
+  ),
+  caption = 'Tech Stocks Adjusted Closing Prices (Rounded to 3 Decimals)',
+  rownames = FALSE
+)
+```
+
+From this table, we can see that `TSLA.Adjusted` has a lot of NAs for the first few years, the reason for that is simply because the company has not yet existed at that time... But let's see if there was any more NAs occured during the process. 
+
+```{r}
+#| code-fold: true 
+#| code-summary: Missing Data Visualisation 
+
+# Visualize missing data pattern with heatmap
+library(naniar)
+library(ggplot2)
+
+# More detailed missing data visualization
+vis_miss(tech_stocks, 
+         warn_large_data = FALSE,
+         show_perc = TRUE,        # Show percentages
+         show_perc_col = TRUE) +  # Show percentages by column
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text.y = element_text(size = 8)) +
+  ggtitle("Missing Data Heatmap for Tech Stocks") +
+  scale_fill_manual(values = c("grey80", "red3"), 
+                    labels = c("Present", "Missing"))
+```
+
+It is now clear that the only missing data for our stock prices are the early years for `TSLA` where the company was born yet. 
+
+## Visualization
+
+There is nothing more fascinating than looking at a time series chart for stock prices, where we can see the stock prices rise in action. 
+
+```{r}
+#| code-fold: True 
+#| code-summary: Interactive Time Series Chart
+#| 
+# Load plotly for interactive charting
+library(plotly)
+library(tidyr)
+
+# Pivot data longer: columns like "AAPL.Adjusted" -> key="Stock", value="Adj_Close"
+tech_stocks_long <- tech_stocks_rounded %>%
+  pivot_longer(
+    cols = ends_with(".Adjusted"),
+    names_to = "Stock",
+    values_to = "Adj_Close"
+  )
+
+# Optional: Clean stock names (remove ".Adjusted" suffix)
+tech_stocks_long$Stock <- gsub("\\.Adjusted", "", tech_stocks_long$Stock)
+
+# Create interactive time series chart
+fig <- plot_ly(
+  data = tech_stocks_long,
+  x = ~date,
+  y = ~Adj_Close,
+  color = ~Stock,
+  type = 'scatter',
+  mode = 'lines',
+  hoverinfo = 'text',
+  text = ~paste(
+    "Stock:", Stock, "<br>",
+    "Date:", date, "<br>",
+    "Adj Close:", Adj_Close
+  )
+) %>%
+  layout(
+    title = "Interactive Adj Closing Price: Tech Stocks",
+    xaxis = list(title = "Date"),
+    yaxis = list(title = "Adjusted Closing Price (USD)"),
+    legend = list(orientation = "h", x = 0.1, y = -0.2)
+  )
+
+fig
+```
+
+What I am going to do next is to normalize stock prices (all stocks are going to start at 100). Why?- Raw prices cannot be compared directly because they start at different levels. Indexing allows us to interpret performance in percentage terms (e.g., a rise from 100 to 200 means the stock has doubled), which is more meaningful for analysing long-term trends and identifying structural regime changes.
+
+```{r}
+#| code-fold: true 
+#| code-summary: Index stock prices to 100 at start 
+# Normalize (index) all stocks to start at 100 at their first available date
+tech_stocks_indexed <- tech_stocks_long %>%
+  group_by(Stock) %>%
+  mutate(
+    Adj_Close_Indexed = 100 * Adj_Close / first(na.omit(Adj_Close))
+  ) %>%
+  ungroup()
+
+# Plot indexed prices for comparison
+fig_indexed <- plot_ly(
+  data = tech_stocks_indexed,
+  x = ~date,
+  y = ~Adj_Close_Indexed,
+  color = ~Stock,
+  type = 'scatter',
+  mode = 'lines',
+  hoverinfo = 'text',
+  text = ~paste(
+    "Stock:", Stock, "<br>",
+    "Date:", date, "<br>",
+    "Indexed Price:", round(Adj_Close_Indexed, 2)
+  )
+) %>%
+  layout(
+    title = "Indexed Adj Closing Price (Base = 100): Tech Stocks",
+    xaxis = list(title = "Date"),
+    yaxis = list(title = "Indexed Price (Start = 100)"),
+    legend = list(orientation = "h", x = 0.1, y = -0.2)
+  )
+
+fig_indexed
+```
+
+Now all assets are in a more comparable scales. 
+
+## Methodology 
+
+For this project, I am to incorporate these two things when forecasting volatility: 
+
+#### 1. **Hidden Markov Model (HMM)** to detect regimes 
+
++ **Motivation**: Financial markets do not behave the same every day.Some days are calm, other days are extremely volatile. We cannot observe these “market conditions” directly, but we can infer them from the pattern of returns.
+
++ HMM **captures** this idea by: 
+
+    + Assumes that there are some $k$-unobserved market regimes (high volatility, low volatitily, crisis, etc.)
+    + Estimates which regime the market is in on each day and regime-specific volatility, mean returns, and persistence.
+    + Outputs state probabilities (67% percent that we are in high volatily regimes). 
+    + Detects volatility regime shifts around crises
+
+
+#### 2. **GARCH** for forecasting volatility
+
++ The GARCH(1,1) model forecasts volatility using:
+
+$$
+h_t = \omega + \alpha \epsilon_{t-1}^2 + \beta h_{t-1}
+$$
+
++ where:
+
+    + $\omega$: long-run volatility (*ensures volatility never collapses to zero.*)
+
+    + $\alpha$: reaction to recent shocks (*“Did something big happen yesterday?”*)
+
+    + $\beta$: volatility persistence (*“Is volatility still high because it was high yesterday?”*)
+
+    + $\alpha + \beta$: how long volatility clusters last
+
+This allows the model to capture and forecast the dynamic behaviour of market volatility. For more details on ARCH and GARCH models, see the [Wikipedia article](https://en.wikipedia.org/wiki/Autoregressive_conditional_heteroskedasticity).
+
+#### **HMM-GARCH**
+
+If these two have a baby it will be **HMM-Garch**. In simple terms, the model tries to do the following 
+
++ Identify which volatility regime the market is currently in (calm, turbulent, crisis) using the Hidden Markov Model.
+
++ Allow each regime to have its own GARCH volatility dynamics, meaning volatility evolves differently depending on the state of the market.
+
++ Produce more realistic volatility forecasts by combining regime detection with dynamic volatility behaviour inside each regime.
+
+## Modelling 
+
+### Preprocessing 
+
+Since GARCH uses log-returns data, hence we need to must convert prices $P_t$ into **log-returns**: 
+
+$$
+r_t = 100 \times (\log P_t - \log P_{t-1})
+$$
+
+The below code does just that: 
+
+```{r}
+log_returns_df <- tech_stocks %>%
+  arrange(date) %>%
+  mutate(
+    across(
+      .cols = -date,
+      .fns = ~ log(.x / lag(.x)),
+      .names = "{.col}_log_return"
+    )
+  )
+```
+
+### How many regimes are enough? 
+
+The first step in fitting HMM-Garch is to determine the number of regimes. To find the optimal number of regimes, we will use **Bayesian Model Comparison** by: 
+
+1. Estimate models with different values of ($K$) using MCMC with Student-t errors.
+2. Obtain each model’s **Deviance Information Criterion (DIC)**.
+3. Choose the K with the lowest DIC value
+
+Now, let's do some modelling 
+
+### TESLA
+
+```{r}
+r <- log_returns_df$TSLA.Adjusted_log_return
+r <- r[!is.na(r)]
+r <- as.numeric(r)
+
+
+library(MSGARCH)
+
+fit_mcmc_list <- list()
+dic_values <- numeric(4)
+
+for (K in 1:4) {
+  # Always specify single regime specs, let K in switch.spec handle expansion
+  spec <- CreateSpec(
+    variance.spec     = list(model = "sGARCH"),
+    distribution.spec = list(distribution = "std"),
+    switch.spec       = list(K = K)
+  )
+
+  fit_mcmc <- FitMCMC(spec, r, ctr = list(nburn = 5000, nmcmc = 10000, nthin = 10))
+  fit_mcmc_list[[K]] <- fit_mcmc
+
+  dic_values[K] <- DIC(fit_mcmc)$DIC
+}
+
+dic_values
+```
+
+## Maximum Likelihood Estimation
+
+As an alternative to Bayesian estimation, we can also fit the models using Maximum Likelihood (ML) estimation and compare them using AIC (Akaike Information Criterion). Lower AIC values indicate better model fit.
+
+**Note**: ML estimation can sometimes fail for higher K values due to optimization difficulties with more parameters. If a model fails to fit, it will be marked as "Failed" in the results.
+
+```{r}
+#| code-fold: true
+#| code-summary: ML Model Comparison
+
+library(MSGARCH)
+
+fit_ml_list <- list()
+aic_values <- numeric(4)
+
+for (K in 1:4) {
+  # Always specify single regime specs, let K in switch.spec handle expansion
+  spec <- CreateSpec(
+    variance.spec     = list(model = "sGARCH"),
+    distribution.spec = list(distribution = "std"),
+    switch.spec       = list(K = K)
+  )
+
+  # Try ML fitting with error handling
+  fit_ml <- tryCatch({
+    FitML(spec, r)
+  }, error = function(e) {
+    cat("Warning: ML fitting failed for K =", K, "- skipping this model\n")
+    cat("Error message:", e$message, "\n")
+    return(NULL)
+  })
+
+  if (!is.null(fit_ml)) {
+    fit_ml_list[[K]] <- fit_ml
+    aic_values[K] <- AIC(fit_ml)
+  } else {
+    aic_values[K] <- NA
+  }
+}
+
+aic_values
+```
+
+## Model Selection
+
+We now have two sets of information criteria to compare:
+- **DIC (Bayesian)**: From MCMC estimation, balances fit and complexity
+- **AIC (ML)**: From maximum likelihood estimation, penalizes model complexity
+
+**Lower values indicate better model fit** for both criteria. Let's compare both approaches:
+
+```{r}
+#| code-fold: true
+#| code-summary: Optimal Model Selection
+
+# Find the best models for both criteria
+best_K_dic <- which.min(dic_values)
+best_K_aic <- which.min(aic_values[!is.na(aic_values)])
+
+cat("=== BAYESIAN (DIC) RESULTS ===\n")
+cat("Optimal number of regimes (DIC):", best_K_dic, "\n")
+cat("DIC value for best model:", dic_values[best_K_dic], "\n")
+cat("DIC values by regime:\n")
+for(i in 1:4) {
+  cat("K =", i, ": DIC =", dic_values[i], "(difference =", dic_values[i] - dic_values[best_K_dic], ")\n")
+}
+
+cat("\n=== MAXIMUM LIKELIHOOD (AIC) RESULTS ===\n")
+cat("Optimal number of regimes (AIC):", best_K_aic, "\n")
+cat("AIC value for best model:", aic_values[best_K_aic], "\n")
+cat("AIC values by regime:\n")
+for(i in 1:4) {
+  if (!is.na(aic_values[i])) {
+    cat("K =", i, ": AIC =", aic_values[i], "(difference =", aic_values[i] - aic_values[best_K_aic], ")\n")
+  } else {
+    cat("K =", i, ": AIC = Failed to fit\n")
+  }
+}
+
+# Plot both DIC and AIC values
+par(mfrow = c(1, 2))
+
+# DIC plot
+plot(1:4, dic_values[1:4], type = "b", xlab = "Number of Regimes (K)",
+     ylab = "DIC", main = "DIC vs Number of Regimes",
+     pch = 19, col = "blue")
+points(best_K_dic, dic_values[best_K_dic], col = "red", pch = 19, cex = 1.5)
+text(best_K_dic, dic_values[best_K_dic], paste("K =", best_K_dic), pos = 3, col = "red")
+
+# AIC plot (only plot successful fits)
+valid_aic <- !is.na(aic_values[1:4])
+if (any(valid_aic)) {
+  plot(which(valid_aic), aic_values[valid_aic], type = "b",
+       xlab = "Number of Regimes (K)", ylab = "AIC",
+       main = "AIC vs Number of Regimes", pch = 19, col = "green",
+       xlim = c(1, 4), ylim = range(aic_values[valid_aic], na.rm = TRUE))
+  points(best_K_aic, aic_values[best_K_aic], col = "red", pch = 19, cex = 1.5)
+  text(best_K_aic, aic_values[best_K_aic], paste("K =", best_K_aic), pos = 3, col = "red")
+
+  # Mark failed models
+  failed_models <- which(!valid_aic)
+  if (length(failed_models) > 0) {
+    for (k in failed_models) {
+      points(k, mean(aic_values[valid_aic], na.rm = TRUE), col = "red", pch = 4, cex = 1.2)
+      text(k, mean(aic_values[valid_aic], na.rm = TRUE), "Failed", pos = 3, col = "red", cex = 0.8)
+    }
+  }
+} else {
+  plot(1, 1, type = "n", xlab = "Number of Regimes (K)", ylab = "AIC",
+       main = "AIC vs Number of Regimes (All fits failed)")
+  text(1, 1, "All ML fits failed", col = "red")
+}
+
+par(mfrow = c(1, 1))
+```
+
+## MCMC Convergence Diagnostics (Bayesian Model)
+
+To check if the MCMC has converged for our Bayesian estimation, we can examine several diagnostic plots and statistics. Let's analyze the convergence for the best Bayesian model (lowest DIC):
+
+```{r}
+#| code-fold: true
+#| code-summary: MCMC Convergence Diagnostics
+
+library(coda)
+
+# Find the best model (lowest DIC)
+best_K <- which.min(dic_values)
+best_fit <- fit_mcmc_list[[best_K]]
+
+# Extract MCMC chains (already in coda format)
+mcmc_chains <- best_fit$par
+
+# 1. Trace plots - should show good mixing, no trends
+plot(mcmc_chains, density = FALSE, main = paste("Trace Plots for K =", best_K))
+
+# 2. Density plots - should show smooth distributions
+plot(mcmc_chains, trace = FALSE, main = paste("Density Plots for K =", best_K))
+
+# 3. Gelman-Rubin diagnostic (if we had multiple chains)
+# For now, we'll use Geweke diagnostic for single chain
+geweke_diag <- geweke.diag(mcmc_chains)
+print("Geweke Diagnostic (z-scores):")
+print(geweke_diag)
+
+# 4. Effective sample size
+ess <- effectiveSize(mcmc_chains)
+print("Effective Sample Sizes:")
+print(ess)
+
+# 5. Acceptance rate
+print(paste("Acceptance rate:", round(best_fit$accept, 3)))
+
+# 6. Summary statistics
+summary_stats <- summary(mcmc_chains)
+print("MCMC Summary Statistics:")
+print(summary_stats)
+```
+
+### Interpreting the Diagnostics:
+
+1. **Trace Plots**: Should show good mixing (chains move freely) without long-term trends or correlations
+2. **Density Plots**: Should show smooth, unimodal distributions
+3. **Geweke Diagnostic**: Z-scores should be between -2 and 2 (95% confidence)
+4. **Effective Sample Size**: Higher is better (should be > 100 for reliable inference)
+5. **Acceptance Rate**: Should typically be between 0.2-0.5 for good mixing
+
+If convergence looks poor, you may need to:
+- Increase `nburn` (burn-in period)
+- Increase `nmcmc` (total iterations)
+- Adjust `nthin` (thinning interval)
+- Check for parameter constraints or poor starting values
+

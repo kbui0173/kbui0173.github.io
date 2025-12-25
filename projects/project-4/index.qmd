@@ -1,0 +1,11 @@
+---
+title: "Project 4"
+description: "Description of project 4"
+date: "2025-12-25"
+categories: [category]
+image: placeholder.png
+---
+
+## Overview
+
+Project 4 details coming soon...

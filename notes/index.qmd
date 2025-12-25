@@ -1,0 +1,7 @@
+---
+title: "Notes"
+listing:
+  contents: note-*
+  sort: "date desc"
+  type: default
+---

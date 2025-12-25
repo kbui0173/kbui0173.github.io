@@ -1,0 +1,67 @@
+---
+title: "Khanh N. (Alex) Bui"
+---
+
+## Academic Interests
+
+My academic interest lies at the intersection of Time Series Analysis and Financial Econometrics, specifically where we can leverage Bayesian Approximations to handle uncertainty. My goal is to pursue a PhD and advance these fields.
+
+At my core, I am a Bayesian apologist. It's not just about the computational utility; it's the philosophy of updating beliefs that resonates with me. I often find myself teasing my colleagues: "Do frequentists really think they're going to live long enough to verify those long-run results?" Give me a posterior distribution over a p-value any day.
+
+I have done some projects regarding these topics. [You can check them out here!](../projects/index.qmd)
+
+## Beyond Academia
+
+### *My dream was to become a Professional Golfer!*
+
+Outside of the academic world, my heart belongs to the golf course. I've been playing since I was 10 years old, and for a long time, the goal wasn't just to play, but to go pro. I took my training seriously, competing at a high level and even cracking the top 10 in a junior tournament in Orlando, Florida. Today, I play for the love of the game, but the mental toughness required to compete is a skill I carry into everything I do. 
+
+Want to know more? [I wrote about my golf journey here!](../blog/posts/welcome/index.qmd)
+
+::: {.grid}
+
+::: {.g-col-6}
+![Hole-in-one with my PW, the best thing about it was that my father was right there too!](../assets/golf1.jpg){width="100%"}
+:::
+
+::: {.g-col-6}
+[![I was fortunate to be coached by the same trainer (Dr. Brendan McLaughlin) of Justin Rose (when he was World's #1.)](../assets/golf5.jpg){width="100%"}](https://www.drbmclaughlin.com/athlete-performance)
+:::
+
+::: {.g-col-6}
+![This is my back-swing. I'm not a professional golfer, but I'm trying my best.](../assets/golf2.jpg){width="100%"}
+:::
+
+::: {.g-col-6}
+![7th place in HJGT Tournament - Orlando, Florida](../assets/golf4.png){width="100%"}
+
+[View Official Tournament Results](https://tournaments.hjgt.org/Scoreboard?TournamentID=14809&TournamentDivisionID=76990){target="_blank"}
+:::
+
+:::
+
+### *My camera is technically my best friend*
+
+When I'm not on the golf course, you'll usually find me with a camera in hand. This passion was born from a quiet realization one New Year's Eve: I scrolled through my camera roll looking for memories to hold onto, only to find it nearly empty. It felt like a whole year of beautiful, small moments had simply slipped through my fingers.
+
+That night became a turning point. I promised myself I would never let life pass by unrecorded again. Lately, I've fallen in love with seeing the world through my Fujifilm X-S20; its film simulations give every shot a sense of timelessness and warmth. Below are some of the fleeting moments I've been lucky enough to keep.
+
+::: {.grid}
+
+::: {.g-col-6}
+![A view of CBD from another side](../assets/DSCF3164.JPG){width="100%"}
+:::
+
+::: {.g-col-6}
+![Observatory Hill](../assets/DSCF3489.JPG){width="100%"}
+:::
+
+::: {.g-col-6}
+![Observatory Hill](../assets/DSCF3590.JPG){width="100%"}
+:::
+
+::: {.g-col-6}
+![Somewhere under the Bridge](../assets/DSCF3138.JPG){width="100%"}
+:::
+
+:::
