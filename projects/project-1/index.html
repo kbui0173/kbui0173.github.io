@@ -249,7 +249,7 @@ window.Quarto = {
 <section id="data-loading-and-exploration" class="level2">
 <h2 class="anchored" data-anchor-id="data-loading-and-exploration">Data Loading and Exploration</h2>
 <p>First, we load the Australian CPI data.</p>
-<div id="76a1cd8b" class="cell" data-execution_count="2">
+<div id="a53f611a" class="cell" data-execution_count="2">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load the Australian CPI data</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> pd.read_csv(<span class="st">'data.cpi.aus.csv'</span>)</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"First 5 observations:"</span>)</span>
@@ -266,7 +266,7 @@ window.Quarto = {
 </div>
 <p>Since the goal of this project is to forecast the Australian CPI, we need to split the data into train and test sets.</p>
 <p>The training set is from March 1995 to December 2023, and the test set is from March 2024 to December 2024.</p>
-<div id="fa519151" class="cell" data-execution_count="3">
+<div id="5134c314" class="cell" data-execution_count="3">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert Date column to datetime for proper filtering</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>df[<span class="st">'Date'</span>] <span class="op">=</span> pd.to_datetime(df[<span class="st">'Date'</span>], <span class="bu">format</span><span class="op">=</span><span class="st">'%b-%Y'</span>)</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -624,7 +624,7 @@ Important Note
 Dep. Variable:                    CPI   No. Observations:                  116
 Model:                 ARIMA(1, 1, 0)   Log Likelihood                -113.056
 Date:                Thu, 25 Dec 2025   AIC                            230.112
-Time:                        16:59:31   BIC                            235.601
+Time:                        17:02:13   BIC                            235.601
 Sample:                    03-01-1995   HQIC                           232.340
                          - 12-01-2023                                         
 Covariance Type:                  opg                                         
@@ -913,7 +913,7 @@ Best Model: ARIMA(2, 1, 1) with Rolling MSE: 5.7589</code></pre>
 </section>
 <section id="results" class="level2">
 <h2 class="anchored" data-anchor-id="results">Results</h2>
-<div id="22941e3c" class="cell" data-execution_count="16">
+<div id="fd9c4c95" class="cell" data-execution_count="16">
 <details class="code-fold">
 <summary>Code</summary>
 <div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a summary table of forecast results</span></span>
