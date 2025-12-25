@@ -1,6 +1,24 @@
 ---
 title: "Khanh N. (Alex) Bui"
 ---
+## About Me
+
+[![Hi there, this is me!](../assets/Khanh.jpg){.rounded-circle width="300px" style="float: right; margin-left: 20px;"}](../assets/Khanh.jpg)
+
+
+Hello, my name is **Khanh N. Bui** and I'm also known as **Alex**.
+
+(*Fun fact*: I named my self after the Lion from Madagascars!).
+
+I’m a Data Science major at The University of Sydney, currently in my third year and considering pursuing Honours in Data Science.
+
+Quickly navigate my page using:
+
+::: {.d-flex .justify-content-center .gap-3 .my-4}
+[Projects](../projects/index.qmd){.btn .btn-primary}
+[Blog Posts](../blog/posts/welcome/index.qmd){.btn .btn-primary}
+[Resume](../resume/resume.pdf){.btn .btn-primary}
+:::
 
 ## Academic Interests
 

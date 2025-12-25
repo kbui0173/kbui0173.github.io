@@ -27,3 +27,9 @@ about:
 I'm a Data Science major at The University of Sydney, currently in my third year and considering pursuing Honours in Data Science. My passion lies in time series analysis, machine learning, and portfolio optimization. Read more about me [**here**](about/index.qmd).
 
 Feel free to explore my [**projects**](projects/index.qmd) and [**blog posts**](blog/posts/welcome/index.qmd) to see what I've been working on!
+
+::: {.d-flex .justify-content-center .gap-3 .my-4}
+[Projects](projects/index.qmd){.btn .btn-secondary}
+[Blog Posts](blog/posts/welcome/index.qmd){.btn .btn-secondary}
+[Resume](resume/resume.pdf){.btn .btn-secondary}
+:::
