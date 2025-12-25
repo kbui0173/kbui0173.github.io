@@ -54,3 +54,16 @@
 .content {
   padding-top: 2rem;
 }
+
+/* Grey button styling */
+.btn-secondary {
+  background-color: #6c757d !important;
+  border-color: #6c757d !important;
+  color: white !important;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268 !important;
+  border-color: #545b62 !important;
+  color: white !important;
+}
