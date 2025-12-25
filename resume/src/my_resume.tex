@@ -1,0 +1,132 @@
+\documentclass{ExpressiveResume}
+
+% Use Arial (Helvetica) font
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+% Make section headers bold with dark blue color and underline
+\usepackage{titlesec}
+\usepackage{xcolor}
+\definecolor{darkblue}{RGB}{0, 51, 102}
+\titleformat{\section}{\Large\bfseries\color{darkblue}}{}{0em}{}[\color{darkblue}\titlerule]
+
+% ----- Resume -----
+\begin{document}
+
+% ----- Name + Contact Information -----
+\resumeheader[
+    firstname=Khanh Nguyen (Alex),
+    middleinitial=,
+    lastname=Bui,
+    email=kbui0173@gmail.com,
+    phone=+61-436-468-715,
+    linkedin=khanh-alex-nguyen-bui-4858b6390,
+    github=kbui0173,
+    website=https://kbui0173.github.io/,
+    city=Chippendale,
+    state=NSW,
+]
+
+\objective{A dedicated Business Analytics and Data Science student with strong analytical thinking and problem-solving skills. Seeking opportunities to apply statistical modeling, predictive analytics, and data-driven insights to business challenges.}
+
+% ----- Education -----
+\section{Education}
+
+\degree{Bachelor of Commerce}{Grade:\textbf{ Distinction}}{The University of Sydney}{Feb 2024 - July 2026}{}{
+    \achievement{\textbf{Major:} Business Analytics and Data Science}
+    \achievement{\textbf{Relevant Topics:} Statistical Modeling, Integer/Non-Integer Optimization, Dynamic Programming, Stochastic Processes, Bayesian Inference, Generalized Linear Models, Time Series Analysis, Option Pricing, Machine Learning.}
+}
+
+% ----- Technical Skills -----
+\section{Skills \& Interest}
+
+\skill{Technical Skills}{\tech{Python}, \tech{R}, \tech{SQL}, \LaTeX, Quarto, Git.}
+\skill{Academic Interest}{Time Series Analysis, Portfolio Optimization, Machine Learning, Option Pricing.}
+\skill{Other Interests}{Golf, Photography, Poker.}
+
+% ----- Projects -----
+\section{Technical Projects}
+
+\project{Australian CPI Forecasting}{Nov, 2025}{
+    \achievement{
+        Developed an ARIMA forecasting pipeline for Australian CPI data using Python, Statsmodels, and Pandas.
+    }
+    \achievement{
+        Implemented exhaustive grid search with expanding window cross-validation to identify optimal hyperparameters.
+    }
+    \achievement{
+        Surpassed baseline model performance by reducing Mean Squared Error (MSE) through out-of-sample validation.
+    }
+    \achievement{
+        \textbf{Tools Used:} \tech{Python} (Statsmodels, Pandas, Scikit-learn, Matplotlib, Seaborn), Quarto, GitHub Pages
+    }
+    \achievement{
+        \textbf{Technical Skills:} Time Series Modeling, Expanding Window Cross-Validation, Data Visualization.
+    }
+}{https://kbui0173.github.io/projects/project-1/}
+
+\project{Regime-Switching Volatility Forecasting}{Dec, 2025}{
+    \achievement{
+        Fetched market data using Quantmod and wrote scripts to resolve timezone-related date errors.
+    }
+    \achievement{
+        Applied Hidden Markov Models within a GJR-GARCH framework to forecast volatility and identify distinct market stress regimes.
+    }
+    \achievement{
+        Selected Skewed Student-t distributions to accurately model 'fat tails' and asymmetry in market data.
+    }
+    \achievement{
+        Reduced MSE by 1.35\% against single-regime benchmarks via parallelized expanding window cross-validation.
+    }
+    \achievement{
+        \textbf{Tools Used:} \tech{R} (MSGARCH, Quantmod, Tidyverse, doParallel, Plotly), Quarto
+    }
+    \achievement{
+        \textbf{Technical Skills:} Volatility Modeling, Hidden Markov Models, Parallel Computing.
+    }
+}{https://kbui0173.github.io/projects/project-2/}
+
+
+% ----- Experience -----
+\section{Experience}
+
+\experience{Receptionist}{BeBee Co-Working Space - HCMC, Vietnam}{May 2025 - Sep 2025}{
+    \achievement{
+        Met and greeted up to 200+ guests daily to ensure they received a warm and friendly welcome.
+    }
+    \achievement{
+        Took time to understand the needs of each visitor and offered additional information.
+    }
+    \achievement{
+        Kept accurate records on check-ins and maintained data confidentiality.
+    }
+    \achievement{
+        Worked as part of a team of 5 and motivated others whenever possible.
+    }
+}
+
+\experience{Waiter}{Ngon 138 Restaurant - HCMC, Vietnam}{May 2024 - Sep 2024}{
+    \achievement{
+        Served customers and addressed complaints to improve customer service.
+    }
+    \achievement{
+        Developed verbal communication skills by engaging with manager and kitchen staff to stay up-to-date on supply availability.
+    }
+    \achievement{
+        Developed time management skills to minimize customer wait times.
+    }
+}
+
+\experience{Full-time Junior Golfer}{MMG Performance - Orlando, Florida}{Jun 2019 - Dec 2021}{
+    \achievement{
+        Trained with world-class coaches and competed in various junior tournaments.
+    }
+    \achievement{
+        Achieved the best personal ranking of 7th in Disney Summer Junior Open (+10 over two rounds).
+    }
+    \achievement{
+        Developed self-discipline through training and mental toughness through competition.
+    }
+}   
+
+\end{document}

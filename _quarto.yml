@@ -26,7 +26,7 @@ website:
         aria-label: GitHub
         target: _blank
       - icon: file-earmark-pdf
-        href: resume/resume.pdf
+        href: resume/Khanh_Bui_Resume.pdf
         aria-label: Resume
         target: _blank
 

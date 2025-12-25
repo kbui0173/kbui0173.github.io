@@ -17,7 +17,7 @@ about:
       href: mailto:kbui0173@gmail.com
     - icon: file-earmark-pdf
       text: Resume
-      href: resume/resume.pdf
+      href: resume/Khanh_Bui_Resume.pdf
 ---
 
 # Khanh N. (Alex) Bui
@@ -31,5 +31,5 @@ Feel free to explore my [**projects**](projects/index.qmd) and [**blog posts**](
 ::: {.d-flex .justify-content-center .gap-3 .my-4}
 [Projects](projects/index.qmd){.btn .btn-secondary}
 [Blog Posts](blog/posts/welcome/index.qmd){.btn .btn-secondary}
-[Resume](resume/resume.pdf){.btn .btn-secondary}
+[Resume](resume/Khanh_Bui_Resume.pdf){.btn .btn-secondary}
 :::
