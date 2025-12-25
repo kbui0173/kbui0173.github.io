@@ -18,11 +18,11 @@ website:
         text: Notes
     right:
       - icon: linkedin
-        href: https://linkedin.com/in/YOUR-LINKEDIN
+        href: https://www.linkedin.com/in/khanh-alex-nguyen-bui-4858b6390/
         aria-label: LinkedIn
         target: _blank
       - icon: github
-        href: https://github.com/YOUR-GITHUB
+        href: https://github.com/kbui0173
         aria-label: GitHub
         target: _blank
       - icon: file-earmark-pdf

@@ -8,13 +8,13 @@ about:
   links:
     - icon: github
       text: GitHub
-      href: https://github.com/YOUR-GITHUB
+      href: https://github.com/kbui0173
     - icon: linkedin
       text: LinkedIn
-      href: https://linkedin.com/in/YOUR-LINKEDIN
+      href: https://www.linkedin.com/in/khanh-alex-nguyen-bui-4858b6390/
     - icon: envelope
       text: Email
-      href: mailto:your-email@example.com
+      href: mailto:kbui0173@gmail.com
     - icon: file-earmark-pdf
       text: Resume
       href: resume/resume.pdf

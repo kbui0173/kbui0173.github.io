@@ -15,9 +15,9 @@ I’m a Data Science major at The University of Sydney, currently in my third ye
 Quickly navigate my page using:
 
 ::: {.d-flex .justify-content-center .gap-3 .my-4}
-[Projects](../projects/index.qmd){.btn .btn-primary}
-[Blog Posts](../blog/posts/welcome/index.qmd){.btn .btn-primary}
-[Resume](../resume/resume.pdf){.btn .btn-primary}
+[Projects](../projects/index.qmd){.btn .btn-secondary}
+[Blog Posts](../blog/posts/welcome/index.qmd){.btn .btn-secondary}
+[Resume](../resume/resume.pdf){.btn .btn-secondary}
 :::
 
 ## Academic Interests
