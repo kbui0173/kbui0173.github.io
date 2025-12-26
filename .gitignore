@@ -25,3 +25,4 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+projects/project-3/data/npas/*.csv

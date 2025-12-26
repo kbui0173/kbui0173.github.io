@@ -1,11 +1,2666 @@
 ---
-title: "Project 3"
-description: "Description of project 3"
+title: "Association Between Dietary Magnesium, Potassium, and Folate Levels and Hypertension Risk: Influence of Sex and Age on Outcomes"
+description: "Analyze the relationship between dietary nutrients and blood pressure using Australian health survey data."
 date: "2025-12-25"
-categories: [category]
-image: placeholder.png
+categories: [Statistical Modelling]
+image: index_files/figure-html/fig-diastolic-bp-variance-1.png
+format:
+  html:
+    code-fold: true
 ---
 
-## Overview
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  tidy = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  cache = TRUE
+  
+)
 
-Project 3 details coming soon...
+options(warn = -1)
+
+# Suppress package startup messages
+library <- function(...) {
+  suppressPackageStartupMessages(base::library(...))
+}
+```
+
+# 1. Research Questions
+
+**Primary Research Question:** *Among healthy Australian adults, is higher usual dietary intake of **magnesium**, **potassium**, and **folate** associated with lower **systolic** and **diastolic blood pressure**?*
+
+**Outcome variables:**
+
+-   Systolic blood pressure (mmHg)
+-   Diastolic blood pressure (mmHg)
+
+**Exposure variables (energy-adjusted, Day 1 intake):**
+
+-   Magnesium (mg/kJ)
+-   Potassium (mg/kJ) and Potassium to Sodium Ratio (mg/kJ)
+-   Folate (µg/kJ)
+
+**Covariates (confounders):**
+
+-   Age (years)
+-   Sex (male/female)
+-   Household income decile
+-   Total energy intake (kJ)
+
+**Population:**
+
+Adults aged ≥21 years, free from known cardiometabolic disease (hypertension, ischemic heart disease, cerebrovascular disease, edema, heart failure, angina), and meeting plausible energy-reporting criteria (EIBMR ≥ 0.9).
+
+### Secondary Research Question
+
+**Secondary research question:** *Do these associations differ by **age group** (≤55 vs \>55 years) and **sex**, and is the **dietary potassium-to-sodium ratio** a stronger predictor of blood pressure than potassium intake alone?*
+
+This secondary question investigates potential **effect modification** and **comparative predictive strength** among related nutrient measures.
+
+# 2. Analysis
+
+## Relevant Variables
+
+The variables selected from the `AHSnpa11bp.csv` dataset were guided by nutritional theory and physiological mechanisms of blood pressure regulation. The core micronutrients—magnesium, potassium, sodium, and folate—were chosen based on their established roles in vascular function and fluid balance. Additional variables capture potential confounders and effect modifiers, including demographic characteristics (age, sex, BMI, income, smoking status), lifestyle factors (alcohol and energy intake), and measures of dietary reporting quality (EI/BMR ratio). Disease status variables were included to identify and exclude individuals with pre-existing cardiometabolic conditions that could obscure the nutrient–blood pressure relationship. The list of original variables and their descriptions is presented below.
+
+While nutritional expertise informed the initial variable selection, the final adjustment set will be determined using a directed acyclic graph (DAG) to identify confounders and avoid inappropriate adjustment for mediators or colliders. This approach ensures that the statistical model captures true associations between dietary micronutrients and blood pressure outcomes while minimizing bias from improper covariate selection.
+
+```{r tbl-variables, message=FALSE, warning=FALSE}
+library(gt)
+library(dplyr)
+library(htmltools)
+
+# --- Build minimal scrollable gt table ---
+variable_table <- tribble(
+  ~Variable,      ~Description_Unit,
+  "abshid",       "Unique household identifier (person-level linkage key)",
+  "abspid",       "Session identifier (person-level, dietary day linkage)",
+  "agec",         "Age (years)",
+  "sex",          "Sex (1 = Male, 2 = Female)",
+  "bmisc",        "Body Mass Index (BMI), kg/m²",
+  "incdec",       "Household income decile (1–10)",
+  "smkstat",      "Smoking status (categorical code 0–5)",
+  "systol",       "Systolic blood pressure (mmHg)",
+  "diastol",      "Diastolic blood pressure (mmHg)",
+  "hfobc",        "Heart failure status (3 = Present, 5 = Absent)",
+  "hypbc",        "Hypertension status (3 = Present, 5 = Absent)",
+  "ischbc",       "Ischaemic heart disease status (3 = Present, 5 = Absent)",
+  "cerevbc",      "Cerebrovascular event status (3 = Present, 5 = Absent)",
+  "oedbc",        "Oedema status (3 = Present, 5 = Absent)",
+  "angbc",        "Angina status (3 = Present, 5 = Absent)",
+  "alct1",        "Alcohol intake — Day 1 (grams)",
+  "alct2",        "Alcohol intake — Day 2 (grams)",
+  "folatt1",      "Folate intake — Day 1 (µg)",
+  "folatt2",      "Folate intake — Day 2 (µg)",
+  "magt1",        "Magnesium intake — Day 1 (mg)",
+  "magt2",        "Magnesium intake — Day 2 (mg)",
+  "potast1",      "Potassium intake — Day 1 (mg)",
+  "potast2",      "Potassium intake — Day 2 (mg)",
+  "sodiumt1",     "Sodium intake — Day 1 (mg)",
+  "sodiumt2",     "Sodium intake — Day 2 (mg)",
+  "energyt1",     "Total energy intake — Day 1 (kJ)",
+  "energyt2",     "Total energy intake — Day 2 (kJ)",
+  "eibmr1",       "Energy intake to basal metabolic rate ratio — Day 1",
+  "eibmr2",       "Energy intake to basal metabolic rate ratio — Day 2"
+)
+
+# Create minimal scrollable gt table
+variable_table %>%
+  gt() %>%
+  tab_header(
+    title = md("**Original Variables from AHSnpa11bp.csv**")
+  ) %>%
+  cols_label(
+    Variable = md("**Variable name**"),
+    Description_Unit = md("**Description (Unit)**")
+  ) %>%
+  tab_options(
+    table.font.names = "Arial",
+    table.font.size = 14,
+    heading.title.font.size = 16,
+    data_row.padding = px(4),
+    column_labels.background.color = "white",
+    table.border.top.width = px(0.5),
+    table.border.bottom.width = px(0.5),
+    heading.border.bottom.color = "black",
+    heading.border.bottom.width = px(1),
+    column_labels.border.bottom.width = px(1),
+    column_labels.border.bottom.color = "black",
+    row.striping.background_color = "white",
+    table.width = pct(100)
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels(everything())
+  ) %>%
+  htmltools::div(style = "height:400px; overflow-y:auto; overflow-x:hidden; position:relative;")
+```
+## Variable Selection via DAG
+
+A **Directed Acyclic Graph (DAG)** is a visual representation of hypothesized causal relationships between variables, used to identify potential confounders and determine the minimal adjustment set for unbiased estimation of an exposure’s effect on an outcome. In this study, the DAG was constructed using the `dagitty` and `ggdag` packages in R to map the presumed causal pathways linking **dietary quality (Diet)** to **blood pressure (BP)**, based on established epidemiological and nutritional evidence. Arrows indicate the assumed direction of influence between demographic, behavioural, and physiological factors such as **age, sex, BMI, income, smoking, alcohol use, exercise, energy intake**, and **diet**. The minimal adjustment set—highlighted in red—represents the variables that need to be statistically controlled to isolate the independent effect of diet on blood pressure, ensuring that the estimated association reflects a causal relationship rather than one confounded by shared causes.
+
+
+```{r}
+#| label: fig-dag
+#| fig-cap: "Directed Acyclic Graph showing causal relationships and minimal adjustment set (highlighted in red) for estimating the effect of dietary quality on blood pressure"
+#| fig-width: 10
+#| fig-height: 6
+
+
+library(dagitty)
+library(ggdag)
+library(dplyr)
+library(ggplot2)
+
+dag.confounder <- dadag.confounder.positioned <- dagitty::dagitty('
+dag {
+  BP [outcome, pos="4,0"]
+  diet [exposure, pos="0,0"]
+  
+  age [pos="0,2"]
+  sex [pos="0,-2"]
+  income [pos="1,2"]
+  height [pos="1,-2"]
+  weight [pos="4,-2"]
+  waist [pos="4,2"]
+  smoke [pos="2,2"]
+  alcohol [pos="2,-2"]
+  exercise [pos="3,2"]
+  energy [pos="3,-2"]
+  
+  age     -> BP
+  age     -> weight
+  age     -> income
+  age     -> smoke
+  age     -> exercise
+  age     -> diet
+  age     -> waist
+  age     -> alcohol
+
+  sex     -> BP
+  sex     -> height
+  sex     -> weight
+  sex     -> smoke
+  sex     -> exercise
+  sex     -> energy
+  sex     -> diet
+  sex     -> waist
+  sex     -> alcohol
+
+  income  -> BP
+  income  -> smoke
+  income  -> exercise
+  income  -> diet
+  income  -> alcohol
+
+  height  -> weight
+  height  -> energy
+  height  -> waist
+
+  smoke   -> BP
+  smoke   -> energy
+  smoke   -> exercise
+
+  alcohol -> BP
+  alcohol -> diet
+  alcohol -> weight
+  alcohol -> energy
+  alcohol -> smoke
+
+  exercise -> BP
+  exercise -> weight
+  exercise -> energy
+  exercise -> waist
+
+  energy  -> diet
+  energy  -> weight
+  energy  -> waist
+ 
+  diet    -> BP
+  diet    -> waist
+
+  weight  -> BP
+  waist   -> BP
+}
+')
+
+# Get minimal adjustment set
+adj_set <- adjustmentSets(dag.confounder, 
+                          exposure = "diet", 
+                          outcome = "BP")[[1]]
+
+# Convert to character vector
+adj_vars <- as.character(adj_set)
+
+# Tidy DAG and add adjustment set indicator
+dag_tidy <- tidy_dagitty(dag.confounder) %>%
+  mutate(
+    adjusted = ifelse(name %in% adj_vars, "Adjusted", "Unadjusted"),
+    adjusted = ifelse(name %in% c("Diet", "BP"), "Exposure/Outcome", adjusted)
+  )
+
+# Plot with color coding
+ggplot(dag_tidy, aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_edges(edge_color = "grey70") +
+  geom_dag_point(aes(color = adjusted), size = 30) +
+  geom_dag_text(color = "black", size = 6) +
+  scale_color_manual(
+    values = c(
+      "Adjusted" = "#E74C3C",           # Red for adjusted
+      "Unadjusted" = "#95A5A6",         # Grey for unadjusted
+      "Exposure/Outcome" = "#3498DB"    # Blue for exposure/outcome
+    ),
+    name = "Variable Status"
+  ) +
+  theme_dag() +
+  labs(title = "Causal DAG with Minimal Adjustment Set Highlighted") +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  )
+```
+
+## Data Cleaning 
+
+```{r data-cleaning-final, message=FALSE, warning=FALSE}
+library(dplyr)
+library(janitor)
+library(here)
+
+# --- Import and clean AHSnpa11bp.csv ---
+nutr_clean <- read.csv(here("projects", "project-3", "data", "npas", "AHSnpa11bp.csv")) %>%
+  clean_names() %>%
+  rename(
+    # Identification
+    person_id        = abshid,
+    session_id       = abspid,
+
+    # Demographics
+    age              = agec,
+    sex_raw          = sex,
+    bmi              = bmisc,
+    income_decile    = incdec,
+    smoker_raw       = smkstat,
+
+    # Blood pressure
+    systolic_bp      = systol,
+    diastolic_bp     = diastol,
+
+    # Cardiometabolic disease variables
+    heart_failure_raw  = hfobc,
+    hypertension_raw   = hypbc,
+    ischemic_hd_raw    = ischbc,
+    cerebral_event_raw = cerevbc,
+    edema_raw          = oedbc,
+    angina_raw         = angbc,
+
+    # Nutrients (Day 1 and Day 2)
+    alcohol_d1       = alct1,
+    alcohol_d2       = alct2,
+    folate_d1        = folatt1,
+    folate_d2        = folatt2,
+    magnesium_d1     = magt1,
+    magnesium_d2     = magt2,
+    potassium_d1     = potast1,
+    potassium_d2     = potast2,
+    sodium_d1        = sodiumt1,
+    sodium_d2        = sodiumt2,
+
+    # Energy and EIBMR
+    energy_d1        = energyt1,
+    energy_d2        = energyt2,
+    eibmr_d1         = eibmr1,
+    eibmr_d2         = eibmr2
+  ) %>%
+  mutate(
+    # --- Handle invalid/missing codes ---
+    systolic_bp   = na_if(systolic_bp, 0) %>% na_if(998) %>% na_if(999),
+    diastolic_bp  = na_if(diastolic_bp, 0) %>% na_if(998) %>% na_if(999),
+    eibmr_d1      = na_if(eibmr_d1, 0) %>% na_if(997) %>% na_if(998) %>% na_if(999),
+    eibmr_d2      = na_if(eibmr_d2, 0) %>% na_if(997) %>% na_if(998) %>% na_if(999),
+    bmi           = na_if(bmi, 98) %>% na_if(99),
+    income_decile = na_if(income_decile, 0) %>% na_if(98) %>% na_if(99),
+
+    # --- Nutrients & Energy: set 0 to NA ---
+    across(
+      c(folate_d1, folate_d2,
+        magnesium_d1, magnesium_d2,
+        potassium_d1, potassium_d2,
+        sodium_d1, sodium_d2,
+        energy_d1, energy_d2
+      ),
+      ~ na_if(., 0)
+    ),
+
+    # --- Average Day 1 & Day 2 values ---
+    avg_alcohol   = rowMeans(cbind(alcohol_d1, alcohol_d2), na.rm = TRUE),
+    avg_folate    = rowMeans(cbind(folate_d1, folate_d2), na.rm = TRUE),
+    avg_magnesium = rowMeans(cbind(magnesium_d1, magnesium_d2), na.rm = TRUE),
+    avg_potassium = rowMeans(cbind(potassium_d1, potassium_d2), na.rm = TRUE),
+    avg_sodium    = rowMeans(cbind(sodium_d1, sodium_d2), na.rm = TRUE),
+    avg_energy    = rowMeans(cbind(energy_d1, energy_d2), na.rm = TRUE),
+    avg_eibmr     = rowMeans(cbind(eibmr_d1, eibmr_d2), na.rm = TRUE),
+
+    # --- Energy-adjusted nutrient densities (per kJ) ---
+    magnesium_per_kj = avg_magnesium / avg_energy,
+    potassium_per_kj = avg_potassium / avg_energy,
+    sodium_per_kj    = avg_sodium / avg_energy,
+    folate_per_kj    = avg_folate / avg_energy,
+    alcohol_per_kj   = avg_alcohol / avg_energy,
+
+    # --- Derived nutrient ratio ---
+    potassium_sodium_ratio = potassium_per_kj / sodium_per_kj
+  )
+```
+
+#### Missing Data and Invalid Codes
+
+Invalid and missing value codes were recoded to NA according to the survey 
+codebook specifications. For blood pressure measurements, values of 0, 998, 
+and 999 were treated as missing. Energy intake to basal metabolic rate ratios 
+(EIBMR) with codes 0, 997, 998, or 999 were set to missing. Body mass index 
+(BMI) values of 98 or 99, and income decile values of 0, 98, or 99 were 
+similarly recoded. Nutrient and energy intake values of exactly zero were 
+considered implausible and set to missing, as they likely represented 
+non-consumption days or data entry errors rather than true zero intake.
+
+#### Nutrient Variable Construction
+
+Nutrient intakes were assessed over two 24-hour dietary recall days. For each 
+nutrient (alcohol, folate, magnesium, potassium, and sodium) and energy 
+intake, the mean of Day 1 and Day 2 values was calculated using pairwise 
+complete observations (`na.rm = TRUE`). This approach retained participants with 
+valid data for at least one recall day while providing more stable intake 
+estimates for those with two days of data.
+
+To account for differences in total energy intake and reduce measurement error, 
+energy-adjusted nutrient densities were calculated by dividing each nutrient's 
+average intake by average total energy intake (expressed per kilojoule). The 
+sodium-to-potassium ratio was derived as the ratio of energy-adjusted sodium 
+to energy-adjusted potassium density.
+
+#### Variable Naming and Recoding
+
+Original variable names were standardized using descriptive labels following 
+tidyverse naming conventions (lowercase with underscores). Survey-specific 
+codes (e.g., `ABSHID`, `AGEC`, `SYSTOL`) were renamed to intuitive identifiers 
+(`person_id`, `age`, `systolic_bp`) to improve code readability and reduce 
+potential coding errors.
+
+```{r}
+library(gt)
+library(dplyr)
+
+# Create detailed data cleaning table (same data as before)
+cleaning_table <- tibble::tribble(
+  ~original_var, ~new_var, ~transformation, ~missing_codes, ~rationale,
+  
+  "ABSHID", "person_id", "Renamed", "—", "Improved readability; unique household identifier",
+  "ABSPID", "session_id", "Renamed", "—", "Improved readability; unique person identifier within household",
+  "AGEC", "age", "Renamed", "—", "Continuous age variable; no recoding needed",
+  "SEX", "sex_raw", "Renamed", "—", "Retained original coding for subsequent recoding",
+  "BMISC", "bmi", "Renamed; 98, 99 → NA", "98, 99", "Invalid BMI measurements per survey codebook",
+  "INCDEC", "income_decile", "Renamed; 0, 98, 99 → NA", "0, 98, 99", "Invalid income codes; 0 = not stated, 98/99 = not applicable",
+  "SMKSTAT", "smoker_raw", "Renamed", "—", "Retained original smoking status for categorical recoding",
+  "SYSTOL", "systolic_bp", "Renamed; 0, 998, 999 → NA", "0, 998, 999", "Invalid measurements: 0 = not measured, 998 = refused, 999 = don't know",
+  "DIASTOL", "diastolic_bp", "Renamed; 0, 998, 999 → NA", "0, 998, 999", "Invalid measurements: 0 = not measured, 998 = refused, 999 = don't know",
+  "HFOBC", "heart_failure_raw", "Renamed", "—", "Self-reported heart failure; retained for comorbidity adjustment",
+  "HYPBC", "hypertension_raw", "Renamed", "—", "Self-reported hypertension diagnosis; key confounder variable",
+  "ISCHBC", "ischemic_hd_raw", "Renamed", "—", "Self-reported ischemic heart disease; retained for sensitivity analyses",
+  "CEREVBC", "cerebral_event_raw", "Renamed", "—", "Self-reported cerebrovascular events (stroke/TIA)",
+  "OEDBC", "edema_raw", "Renamed", "—", "Self-reported edema; indicator of cardiovascular disease",
+  "ANGBC", "angina_raw", "Renamed", "—", "Self-reported angina; cardiovascular disease indicator",
+  "ALCT1", "alcohol_d1", "Renamed; 0 → NA", "0", "Zero alcohol intake implausible for 24hr recall",
+  "FOLATT1", "folate_d1", "Renamed; 0 → NA", "0", "Zero folate implausible; folate present in most foods",
+  "MAGT1", "magnesium_d1", "Renamed; 0 → NA", "0", "Zero magnesium implausible; ubiquitous in diet",
+  "POTAST1", "potassium_d1", "Renamed; 0 → NA", "0", "Zero potassium implausible; essential nutrient in most foods",
+  "SODIUMT1", "sodium_d1", "Renamed; 0 → NA", "0", "Zero sodium highly implausible; present in nearly all foods",
+  "ENERGYT1", "energy_d1", "Renamed; 0 → NA", "0", "Zero energy intake impossible for 24hr recall day",
+  "EIBMR1", "eibmr_d1", "Renamed; 0, 997, 998, 999 → NA", "0, 997, 998, 999", "Invalid ratio codes; used for plausible reporting classification",
+  "ALCT2", "alcohol_d2", "Renamed; 0 → NA", "0", "Zero alcohol intake implausible for 24hr recall",
+  "FOLATT2", "folate_d2", "Renamed; 0 → NA", "0", "Zero folate implausible; folate present in most foods",
+  "MAGT2", "magnesium_d2", "Renamed; 0 → NA", "0", "Zero magnesium implausible; ubiquitous in diet",
+  "POTAST2", "potassium_d2", "Renamed; 0 → NA", "0", "Zero potassium implausible; essential nutrient in most foods",
+  "SODIUMT2", "sodium_d2", "Renamed; 0 → NA", "0", "Zero sodium highly implausible; present in nearly all foods",
+  "ENERGYT2", "energy_d2", "Renamed; 0 → NA", "0", "Zero energy intake impossible for 24hr recall day",
+  "EIBMR2", "eibmr_d2", "Renamed; 0, 997, 998, 999 → NA", "0, 997, 998, 999", "Invalid ratio codes; used for plausible reporting classification",
+  "—", "avg_alcohol", "rowMeans(alcohol_d1, alcohol_d2)", "—", "Average of two 24hr recalls reduces measurement error",
+  "—", "avg_folate", "rowMeans(folate_d1, folate_d2)", "—", "Two-day average provides more stable estimate of usual intake",
+  "—", "avg_magnesium", "rowMeans(magnesium_d1, magnesium_d2)", "—", "Two-day average reduces day-to-day variation in intake",
+  "—", "avg_potassium", "rowMeans(potassium_d1, potassium_d2)", "—", "Two-day average improves precision of usual intake estimate",
+  "—", "avg_sodium", "rowMeans(sodium_d1, sodium_d2)", "—", "Two-day average accounts for intra-individual variation",
+  "—", "avg_energy", "rowMeans(energy_d1, energy_d2)", "—", "Two-day average used as denominator for energy adjustment",
+  "—", "avg_eibmr", "rowMeans(eibmr_d1, eibmr_d2)", "—", "Average EIBMR for Goldberg cutoff method",
+  "—", "magnesium_per_kj", "avg_magnesium / avg_energy", "—", "Energy-adjusted density method; controls for total intake",
+  "—", "potassium_per_kj", "avg_potassium / avg_energy", "—", "Nutrient density per kJ; removes confounding by energy",
+  "—", "sodium_per_kj", "avg_sodium / avg_energy", "—", "Energy adjustment follows standard methods",
+  "—", "folate_per_kj", "avg_folate / avg_energy", "—", "Density method allows comparison across different intakes",
+  "—", "alcohol_per_kj", "avg_alcohol / avg_energy", "—", "Alcohol density relative to total energy intake",
+  "—", "potassium_sodium_ratio", "sodium_per_kj / potassium_per_kj", "—", "Dietary quality indicator; associated with hypertension risk"
+)
+
+# Minimal styling version
+cleaning_table %>%
+  gt() %>%
+  
+  # Simple header
+  tab_header(
+    title = "Data Cleaning and Variable Construction Log",
+    subtitle = "Australian Health Survey: Nutrition and Physical Activity (NHSPAS)"
+  ) %>%
+  
+  # Column labels
+  cols_label(
+    original_var = "Original Variable",
+    new_var = "New Variable",
+    transformation = "Transformation Applied",
+    missing_codes = "Missing Codes",
+    rationale = "Rationale"
+  ) %>%
+  
+  # Row groups
+  tab_row_group(label = "Identification", rows = 1:2) %>%
+  tab_row_group(label = "Demographics", rows = 3:7) %>%
+  tab_row_group(label = "Blood Pressure", rows = 8:9) %>%
+  tab_row_group(label = "Cardiometabolic Disease", rows = 10:15) %>%
+  tab_row_group(label = "Day 1 Nutrients", rows = 16:22) %>%
+  tab_row_group(label = "Day 2 Nutrients", rows = 23:29) %>%
+  tab_row_group(label = "Average Nutrient Intakes", rows = 30:36) %>%
+  tab_row_group(label = "Energy-Adjusted Densities", rows = 37:41) %>%
+  tab_row_group(label = "Nutrient Ratios", rows = 42) %>%
+  
+  # Minimal styling - only essentials
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_title(groups = "title")
+  ) %>%
+  
+  tab_style(
+    style = cell_text(size = px(11)),
+    locations = cells_title(groups = "subtitle")
+  ) %>%
+  
+  tab_style(
+    style = list(
+      cell_text(weight = "bold"),
+      cell_fill(color = "#f5f5f5")
+    ),
+    locations = cells_column_labels()
+  ) %>%
+  
+  tab_style(
+    style = cell_fill(color = "#fafafa"),
+    locations = cells_row_groups()
+  ) %>%
+  
+  tab_style(
+    style = cell_text(font = "monospace", size = px(10)),
+    locations = cells_body(columns = c(original_var, new_var))
+  ) %>%
+  
+  # Simple footnote
+  tab_footnote(
+    footnote = "Missing codes: 0 = not measured; 98/998 = refused; 99/999 = not stated; 997 = not applicable",
+    locations = cells_column_labels(columns = missing_codes)
+  ) %>%
+  
+  # Source note
+  tab_source_note(
+    source_note = "Data: Australian Health Survey 2011-12. Analysis: October 2025"
+  ) %>%
+  
+  # Minimal table options
+  tab_options(
+    table.width = pct(100),
+    table.font.size = px(11),
+    container.height = px(600),
+    container.overflow.y = "auto",
+    table.border.top.color = "#333333",
+    table.border.top.width = px(2),
+    table.border.bottom.color = "#333333",
+    table.border.bottom.width = px(2),
+    column_labels.border.bottom.color = "#666666",
+    column_labels.border.bottom.width = px(1),
+    data_row.padding = px(6)
+  ) %>%
+  
+  # Column widths
+  cols_width(
+    original_var ~ px(140),
+    new_var ~ px(170),
+    transformation ~ px(240),
+    missing_codes ~ px(130),
+    rationale ~ px(380)
+  )
+```
+
+## Analytical Sample Construction
+```{r}
+# Analytical Dataset Construction with Sample Size Tracking
+
+library(dplyr)
+
+# Track sample sizes
+n_steps <- list()
+
+# Step 0: Initial sample
+n_steps$n0 <- nrow(nutr_clean)
+
+# Step 1: Recode and exclude cardiometabolic disease
+analytical_data <- nutr_clean %>%
+  mutate(
+    sex = ifelse(sex_raw == 1, 1, 0),
+    across(
+      c(heart_failure_raw, hypertension_raw, ischemic_hd_raw, 
+        cerebral_event_raw, edema_raw, angina_raw),
+      ~ case_when(. == 5 ~ "Absent", . == 3 ~ "Present", TRUE ~ "Other")
+    )
+  ) %>%
+  filter(
+    heart_failure_raw == "Absent",
+    hypertension_raw == "Absent",
+    ischemic_hd_raw == "Absent",
+    cerebral_event_raw == "Absent",
+    edema_raw == "Absent",
+    angina_raw == "Absent"
+  )
+
+n_steps$n1 <- nrow(analytical_data)
+
+# Step 2: Plausible energy reporters
+analytical_data <- analytical_data %>%
+  filter(avg_eibmr >= 0.9)
+
+n_steps$n2 <- nrow(analytical_data)
+
+# Step 3: Non-missing nutrients
+analytical_data <- analytical_data %>%
+  filter(
+    !is.na(avg_energy), !is.na(avg_magnesium), !is.na(avg_potassium),
+    !is.na(avg_sodium), !is.na(avg_folate)
+  )
+
+n_steps$n3 <- nrow(analytical_data)
+
+# Step 4: Non-missing covariates
+analytical_data <- analytical_data %>%
+  filter(
+    !is.na(age), !is.na(sex), !is.na(income_decile),
+    !is.na(systolic_bp), !is.na(diastolic_bp)
+  )
+
+n_steps$n4 <- nrow(analytical_data)
+
+# Step 5: Age restriction
+analytical_data <- analytical_data %>%
+  filter(age >= 21)
+
+n_steps$n5 <- nrow(analytical_data)
+
+# Add derived variables
+analytical_data <- analytical_data %>%
+  select(
+    person_id, session_id,
+    systolic_bp, diastolic_bp,
+    magnesium_per_kj, potassium_per_kj, sodium_per_kj, folate_per_kj,
+    alcohol_per_kj, potassium_sodium_ratio,
+    age, sex, income_decile, avg_energy, avg_alcohol
+  )
+```
+
+The final analytical dataset was constructed through sequential application of exclusion criteria (@fig-sample-flow). Beginning with the full Australian Health Survey sample (N = 12,153), participants were systematically excluded based on predefined criteria to ensure a valid analytic population.
+
+First, individuals with any self-reported cardiometabolic disease were excluded (heart failure, hypertension, ischemic heart disease, cerebrovascular events, edema, or angina; n = 2,275 excluded), yielding 9,878 participants. Second, implausible energy reporters were identified using the Goldberg cutoff method (average energy intake to basal metabolic rate ratio [EIBMR] < 0.9), resulting in exclusion of 2,957 participants and a sample of 6,921. Third, participants with missing data on key dietary nutrients (magnesium, potassium, sodium, folate, or total energy) were excluded; however, no participants were excluded at this stage as missingness had already been addressed in prior steps. Fourth, participants with missing covariate data (age, sex, household income decile, or blood pressure measurements) were excluded (n = 1,555), leaving 5,366 participants. Finally, the sample was restricted to adults aged ≥21 years (n = 1,116 excluded), yielding a final analytical sample of N = 4,250.
+
+```{dot}
+//| label: fig-sample-flow
+//| fig-cap: "Sequential sample exclusions and final analytical sample size"
+//| fig-align: center
+
+digraph G {
+  rankdir=TB;
+  node [shape=box, style="filled,rounded", fillcolor="#E8E8F5", color="#7B7DB8", fontname="Arial"];
+
+  A [label="Initial Sample\nN = 12,153"];
+  B [label="Exclude Cardiometabolic Disease\nN = 9,878"];
+  C [label="Goldberg Cutoff (EIBMR ≥ 0.9)\nN = 6,921"];
+  D [label="Exclude Missing Nutrient Data\nN = 6,921"];
+  E [label="Exclude Missing Covariates\nN = 5,366"];
+  F [label="Age ≥ 21 years\nN = 4,250"];
+
+  A -> B -> C -> D -> E -> F;
+}
+```
+
+## Exploratory Data Analysis
+
+### Descriptive Statistics 
+
+```{r}
+#| results: asis
+#| include: false 
+library(gtsummary)
+library(dplyr)
+
+# 1. Define variables
+vars <- c("age", "sex",
+          "systolic_bp", "diastolic_bp",
+          "magnesium_per_kj", "potassium_per_kj",
+          "folate_per_kj", "potassium_sodium_ratio")
+
+# Ensure variables exist
+sel <- intersect(names(analytical_data), vars)
+
+# 2. Helper to build table
+make_tbl <- function(df, title, sel_vars = sel) {
+  df %>%
+    select(all_of(sel_vars)) %>%
+    tbl_summary(
+      type      = list(all_continuous() ~ "continuous2"),
+      statistic = list(
+        all_continuous() ~ c("{mean} ({sd})", "{median} [{p25}, {p75}]"),
+        all_categorical() ~ "{n} / {N} ({p}%)"
+      ),
+      missing = "no"
+    ) %>%
+    modify_caption(paste0("**", title, "**"))
+}
+
+# 3. Create the three tables
+tbl_overall <- make_tbl(analytical_data, "General Population Characteristics")
+tbl_lt55    <- make_tbl(filter(analytical_data, age < 55), "Less than 55 yo Population Characteristics")
+tbl_ge55    <- make_tbl(filter(analytical_data, age >= 55), "Older than 55 yo Population Characteristics")
+```
+
+::: {.panel-tabset}
+#### General population Characteristics
+```{r}
+tbl_overall
+```
+#### Less than 55 yo population Characteristics
+```{r}
+tbl_lt55
+```
+#### Older than 55 yo population Characteristics
+```{r}
+tbl_ge55
+```
+:::
+
+### Why do we stratified age group as such? 
+::: {.panel-tabset}
+
+#### Systolic BP
+
+```{r}
+#| label: fig-diastolic-bp-variance
+#| fig-width: 8
+#| fig-height: 5
+
+ggplot(analytical_data, aes(age, diastolic_bp)) +
+  stat_summary_bin(fun = var, bins = 65, geom = "line") +
+  stat_summary_bin(fun = var, bins = 65, geom = "point") +
+  labs(
+    x = "Age",
+    y = "Variance of Diastolic BP",
+    title = "Diastolic BP Variance vs Age"
+  ) +
+  theme_bw()
+```
+
+#### Diastolic BP
+
+```{r}
+#| label: fig-systolic-bp-variance
+#| fig-width: 8
+#| fig-height: 5
+
+ggplot(analytical_data, aes(age, systolic_bp)) +
+  stat_summary_bin(fun = var, bins = 65, geom = "line") +
+  stat_summary_bin(fun = var, bins = 65, geom = "point") +
+  labs(
+    x = "Age",
+    y = "Variance of Systolic BP",
+    title = "Systolic BP Variance vs Age"
+  ) +
+  theme_bw()
+```
+:::
+
+Visual inspection of @fig-systolic-bp-variance and @fig-diastolic-bp-variance shows a clear difference in the variability patterns of blood pressure across age.
+
+For **diastolic blood pressure** (@fig-diastolic-bp-variance), the variance remains relatively stable across age groups, fluctuating mildly around 100 mmHg² with no consistent upward or downward trend.
+In contrast, **systolic blood pressure** (@fig-systolic-bp-variance) displays a marked increase in variance with advancing age, rising from roughly 150 mmHg² in early adulthood to over 600 mmHg² among older participants.
+
+This pattern suggests that systolic BP becomes more heterogeneous with age, possibly reflecting growing differences in cardiovascular elasticity and treatment effects among older individuals.
+To formally assess whether these visual patterns correspond to statistically significant differences in variability between younger (< 55 years) and older (≥ 55 years) participants, **F-tests for equality of variances** were subsequently conducted.
+
+The null and alternative hypotheses were defined as follows:
+
+$$
+H_0: \sigma^2_{\text{<55}} = \sigma^2_{\text{≥55}}
+\quad\text{vs.}\quad
+H_1: \sigma^2_{\text{<55}} \neq \sigma^2_{\text{≥55}},
+$$
+
+where $\sigma^2$ denotes the population variance of the respective blood pressure variable.
+Under the null hypothesis, the F-statistic follows an (F)-distribution with degrees of freedom corresponding to the sample sizes of the two groups.
+All tests were two-tailed, and a significance level of $\alpha = 0.05$ was adopted.
+
+```{r}
+#| label: tbl-fvar-bp
+#| tbl-cap: "F-tests for Equality of Variances (<55 vs ≥55)"
+library(dplyr)
+library(purrr)
+library(gt)
+library(scales)
+
+dat <- analytical_data %>%
+  mutate(age_group = if_else(age < 55, "<55", "≥55"))
+
+run_f <- function(yvar) {
+  h <- stats::var.test(reformulate("age_group", response = yvar), data = dat)
+  tibble::tibble(
+    Measure = dplyr::recode(yvar,
+                             systolic_bp  = "Systolic BP",
+                             diastolic_bp = "Diastolic BP"),
+    F        = unname(h$statistic),
+    df_num   = as.numeric(h$parameter[1]),
+    df_den   = as.numeric(h$parameter[2]),
+    # Use sigma^2 with escaped backslashes
+    `Variance ratio` = unname(h$estimate),
+    `95% CI`  = sprintf("[%.3f, %.3f]", h$conf.int[1], h$conf.int[2]),
+    `p-value` = h$p.value
+  )
+}
+
+res <- purrr::map_dfr(c("systolic_bp", "diastolic_bp"), run_f)
+
+gt(res) |>
+  fmt_number(columns = c(F, `Variance ratio`), decimals = 3) |>
+  fmt_number(columns = c(df_num, df_den), decimals = 0) |>
+  fmt_number(columns = `p-value`, decimals = 3) |>
+  text_transform(
+    locations = cells_body(columns = `p-value`),
+    fn = function(x) ifelse(as.numeric(x) < 0.001, "<0.001", x)
+  ) |>
+  tab_header(
+    title = md("**F-tests for Equality of Variances**"),
+    subtitle = md("<55 vs ≥55 by age group (two-sided, $\\alpha = 0.05$)")
+  ) |>
+  cols_label(
+    df_num = md("$df_{\\text{num}}$"),
+    df_den = md("$df_{\\text{den}}$")
+  ) |>
+  tab_footnote(footnote = md("Variance ratio = $\\sigma^2_{<55}/\\sigma^2_{\\ge 55}$."))
+```
+
+The F-tests in @tbl-fvar-bp formally evaluate whether the variance of blood pressure differs between participants aged below 55 years and those aged 55 years or older.
+Although the descriptive plots suggested greater dispersion in systolic blood pressure with age, the tests were performed for both **systolic** and **diastolic** measures to ensure completeness and comparability across outcomes.
+Each test examines the null hypothesis that the population variances are equal between the two age groups, providing the corresponding *F* statistic, degrees of freedom, confidence interval for the variance ratio $\sigma^2_{<55}/\sigma^2_{\ge55}$, and two-sided *p* value.
+Subsequent sections interpret these results in relation to age-related variability in blood pressure.
+
+### Bivariate
+
+```{r corr-heatmap-bp-nutrients, message=FALSE, warning=FALSE, fig.width=8, fig.height=7}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(reshape2)
+library(scales)
+
+# --- Select numeric variables ---
+vars_keep <- c(
+  "systolic_bp", "diastolic_bp",
+  "magnesium_per_kj", "potassium_per_kj",
+  "folate_per_kj", "potassium_sodium_ratio",
+  "avg_energy", "age"
+)
+
+# --- Prepare data ---
+df <- analytical_data %>%
+  select(all_of(intersect(vars_keep, names(.)))) %>%
+  drop_na()
+
+# --- Compute correlation matrix ---
+corr_mat <- round(cor(df, use = "pairwise.complete.obs"), 2)
+
+# --- Melt for ggplot ---
+corr_df <- reshape2::melt(corr_mat) %>%
+  rename(Var1 = Var1, Var2 = Var2, value = value)
+
+# --- Correlation heatmap ---
+ggplot(corr_df, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.2f", value)),
+            color = "black", size = 3.5) +
+  scale_fill_gradient2(
+    low = "#B2182B", mid = "white", high = "#2166AC",
+    midpoint = 0, limits = c(-1, 1), name = "r"
+  ) +
+  coord_fixed() +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  ) +
+  labs(title = "Correlation Heatmap: Blood Pressure, Nutrients, Energy, and Age")
+```
+The correlation heatmap reveals distinct patterns in the bivariate relationships between blood pressure outcomes and potential predictors. For systolic blood pressure, age demonstrates the strongest positive correlation (r = 0.43), indicating that systolic pressure increases substantially with age—consistent with established cardiovascular aging patterns where arterial stiffness increases over time. In contrast, all energy-adjusted nutrients (magnesium, potassium, folate, and potassium-sodium ratio) show negligible correlations with systolic BP, with correlation coefficients near zero (r = -0.01 to 0.04). Average energy intake similarly shows essentially no correlation with systolic BP (r = 0.03).
+
+For diastolic blood pressure, age again exhibits the strongest correlation (r = 0.18), though considerably weaker than its association with systolic BP. This differential age effect is clinically relevant, as systolic BP rises more steeply with age than diastolic BP. The energy-adjusted nutrients demonstrate similarly negligible correlations with diastolic BP (r = -0.06 to 0.03), suggesting no substantial bivariate linear relationships. Average energy intake shows no meaningful correlation with diastolic BP (r = 0.01).
+
+### Distributions by Variable 
+
+```{r,include=FALSE}
+plot_hist_box <- function(data, 
+                          xlim = NULL,
+                          breaks = 40,
+                          box_col = rgb(0.8, 0.8, 0, 0.5),
+                          hist_col = rgb(0.2, 0.8, 0.5, 0.5),
+                          xlab = "Value") {
+  
+  # Remove NA and Inf values
+  data <- data[is.finite(data)]
+  
+  # Check if data is empty
+  if (length(data) == 0) {
+    stop("No finite values in data")
+  }
+  
+  # Auto-calculate range if not provided
+  if (is.null(xlim)) {
+    xlim <- range(data)
+    buffer <- diff(xlim) * 0.1
+    xlim <- xlim + c(-buffer, buffer)
+  }
+  
+  # Set up layout
+  layout(matrix(c(1, 2), 2, 1), heights = c(1, 8))
+  
+  # Boxplot
+  par(mar = c(0, 3.1, 1.1, 2.1))
+  boxplot(data, horizontal = TRUE, ylim = xlim, xaxt = "n", 
+          col = box_col, frame = FALSE)
+  
+  # Histogram
+  par(mar = c(4, 3.1, 1.1, 2.1))
+  hist(data, breaks = breaks, col = hist_col, border = FALSE, 
+       main = "", xlab = xlab, xlim = xlim)
+}
+```
+
+
+::: {.panel-tabset}
+#### Systolic BP (mmHg)
+```{r dist-systolic, fig.width=10, fig.height=6, message=FALSE, warning=FALSE}
+plot_hist_box(analytical_data$systolic_bp)
+```
+
+#### Diastolic BP (mmHg)
+```{r dist-diastolic, fig.width=10, fig.height=6, message=FALSE, warning=FALSE}
+plot_hist_box(analytical_data$diastolic_bp)
+```
+
+#### Magnesium per kJ
+```{r dist-magnesium, fig.width=10, fig.height=6, message=FALSE, warning=FALSE}
+plot_hist_box(analytical_data$magnesium_per_kj)
+```
+
+#### Potassium per kJ
+```{r dist-potassium, fig.width=10, fig.height=6, message=FALSE, warning=FALSE}
+plot_hist_box(analytical_data$potassium_per_kj)
+```
+
+#### Folate per kJ
+```{r dist-folate, fig.width=10, fig.height=6, message=FALSE, warning=FALSE}
+plot_hist_box(analytical_data$folate_per_kj)
+```
+
+#### Potassium Sodium Ratio per KJ 
+
+```{r dist-potsoratio, fig.width=10, fig.height=6, message=FALSE, warning=FALSE}
+plot_hist_box(analytical_data$potassium_sodium_ratio)
+```
+#### Average Alcohol 
+```{r dist-alcohol, fig.width=10, fig.height=6, message=FALSE, warning=FALSE}
+plot_hist_box(analytical_data$alcohol_per_kj)
+```
+
+#### Average Energy (kJ)
+```{r dist-energy, fig.width=10, fig.height=6, message=FALSE, warning=FALSE}
+plot_hist_box(analytical_data$avg_energy)
+```
+
+
+#### Age (years)
+```{r dist-age, fig.width=10, fig.height=6, message=FALSE, warning=FALSE}
+plot_hist_box(analytical_data$age)
+```
+:::
+
+### Blood Pressure vs. Predictors Relationship 
+```{r}
+#| results: asis
+library(ggplot2)
+library(dplyr)
+
+# Define nutrients and outcomes
+nutrients <- c("magnesium_per_kj", "potassium_per_kj", "folate_per_kj",
+               "potassium_sodium_ratio")
+outcomes  <- c("systolic_bp", "diastolic_bp")
+
+# Display labels (named so we can index by key)
+nutrient_labels <- c(
+  magnesium_per_kj      = "Magnesium per kJ",
+  potassium_per_kj      = "Potassium per kJ",
+  folate_per_kj         = "Folate per kJ",
+  potassium_sodium_ratio= "Potassium:Sodium Ratio"
+)
+
+outcome_labels <- c(
+  systolic_bp  = "Systolic BP (mmHg)",
+  diastolic_bp = "Diastolic BP (mmHg)"
+)
+
+# Safe label lookup (fallback to key if not found)
+label_lookup <- function(map, key) if (!is.null(map[[key]])) map[[key]] else key
+
+# Scatterplot factory (uses tidy-eval instead of aes_string)
+create_scatter <- function(data, x_var, y_var) {
+  ggplot(data, aes(.data[[x_var]], .data[[y_var]])) +
+    geom_point(alpha = 0.3, size = 1.5) +
+    geom_smooth(method = "lm", se = TRUE, color = "#2166AC", linewidth = 1) +
+    labs(
+      x = label_lookup(nutrient_labels, x_var),
+      y = label_lookup(outcome_labels,  y_var)
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(size = 12, face = "bold"),
+      axis.title = element_text(size = 10)
+    )
+}
+
+# ---- Render tabset ----
+cat("::: {.panel-tabset}\n\n")
+
+for (outcome in outcomes) {
+  for (nutrient in nutrients) {
+
+    tab_label <- paste(label_lookup(outcome_labels, outcome),
+                       "vs",
+                       label_lookup(nutrient_labels, nutrient))
+
+    cat(sprintf("### %s\n\n", tab_label))
+
+    p <- create_scatter(analytical_data, nutrient, outcome)  # assumes analytical_data exists
+    print(p)
+    cat("\n\n")
+  }
+}
+
+cat(":::\n")
+```
+
+Across all scatterplots, the nutrient–blood pressure relationships appear generally weak but show the presence of several extreme observations. These outliers may disproportionately influence ordinary least squares (OLS) estimates, potentially biasing slope and significance. Therefore, using a robust OLS regression approach is recommended to obtain parameter estimates less sensitive to these outliers.
+
+## Method Overview
+
+This analysis employs bootstrap ridge regression as the primary estimation framework to assess the associations between energy-adjusted nutrient intake (magnesium, potassium, folate, and potassium-to-sodium ratio) and blood pressure outcomes (systolic and diastolic). The modeling strategy proceeds in three stages:
+
+First, ordinary least squares (OLS) regression establishes baseline associations, providing a conventional reference point for interpretation. Second, robust regression using M-estimation (via the `lmrob` function) accounts for potential outliers and leverage points identified in exploratory scatterplots, yielding parameter estimates less sensitive to extreme observations. Third, ridge regression with bootstrap resampling addresses multicollinearity among nutritional predictors while providing stable standard errors and confidence intervals through `B = 1000` bootstrap iterations.
+
+For each model, 10-fold cross-validation is performed to estimate out-of-sample predictive performance via cross-validated root mean squared error (CV-RMSE). Ridge penalty parameters are selected using cross-validation at each bootstrap iteration to optimize the bias-variance trade-off. Bootstrap replicates provide empirical distributions of coefficient estimates, from which standard errors, 95% confidence intervals, and approximate p-values are derived.
+
+The covariate adjustment set—age, sex, household income decile, total energy intake, and alcohol intake—was identified via directed acyclic graph (DAG) analysis to control for confounding while avoiding adjustment for mediators or colliders. All nutrient exposures are expressed as energy-adjusted densities (per kilojoule) to isolate dietary quality from total intake effects. Analyses are conducted on the full analytical sample (N = 4,250) and stratified by age group (≤55 vs >55 years) to assess effect modification.
+
+
+## Assumptions of the Method
+
+The bootstrap ridge regression framework relies on several key assumptions, which were evaluated through diagnostic procedures presented in subsequent sections.
+
+**Linearity**: The relationship between nutrient densities and blood pressure is assumed to be linear after adjustment for covariates. This assumption was assessed via residual-versus-fitted plots, which display no systematic curvature or patterns.
+
+**Independence**: Observations are assumed to be independent after accounting for household clustering through the survey design. The Australian Health Survey sampling frame ensures that participants represent non-overlapping population units.
+
+**Homoscedasticity**: Constant variance of residuals across fitted values is assumed for valid inference. Residual plots were examined for funnel-shaped patterns; no substantial heteroscedasticity was detected.
+
+**Approximate normality of residuals**: While ridge regression does not strictly require normality for point estimation, approximate normality supports the validity of bootstrap-derived confidence intervals and hypothesis tests. Quantile-quantile (Q-Q) plots demonstrate close adherence to the theoretical normal distribution across all models.
+
+**No severe multicollinearity**: Ridge regression explicitly addresses multicollinearity through L2 penalization, shrinking correlated coefficient estimates toward zero. The correlation heatmap reveals moderate correlations among nutrient predictors (r < 0.6), justifying the use of regularization.
+
+**Correct model specification**: The DAG-based covariate selection ensures that observed associations are not confounded by measured demographic, socioeconomic, or dietary factors. However, residual confounding from unmeasured variables (e.g., medication use, physical activity) remains possible.
+
+**Measurement validity**: Nutrient intakes derived from 24-hour dietary recalls are subject to recall bias and day-to-day variation. Averaging across two recall days partially mitigates random error but does not eliminate systematic under- or over-reporting. Energy adjustment using the nutrient density method reduces but does not fully eliminate these biases.
+
+These assumptions support the internal validity of the analysis, though cross-sectional design and measurement limitations preclude causal inference.
+
+## Application to the Dataset
+
+```{r, include=FALSE}
+# ============================================================
+# Helper: fit 3 regressions + 10-fold CV + tidy outputs
+# - Inputs:
+#     formula_str : e.g. "y ~ x1 + x2 + x3"
+#     data        : a data.frame with all variables
+#     k           : CV folds (default 10)
+#     B           : bootstrap reps for Ridge SE/CI (default 200)
+#     seed        : RNG seed for reproducibility
+# - Output:
+#     A named list with entries "ols", "robust", "ridge".
+#     Each contains:
+#       $metrics  : R2, AdjR2, CV_RMSE
+#       $table    : coefficients with Estimate, SE, t, p, CI
+#       $plots    : residuals vs fitted & QQ plot (ggplot)
+# ============================================================
+
+fit_three_models <- function(formula_str, data, k = 10, B = 1000, seed = 3888) {
+  # ---- 0) Packages we'll use ----
+  suppressPackageStartupMessages({
+    library(ggplot2)
+    library(broom)        # tidy(), glance(), confint_tidy
+    library(robustbase)   # lmrob()
+    library(glmnet)       # ridge + CV
+    library(stats)        # confint(), model.matrix()
+    library(dplyr)
+  })
+  
+  set.seed(seed)
+  fml <- as.formula(formula_str)
+  
+  # Helper: build two simple diagnostic plots for any fitted values/residuals
+  make_plots <- function(fitted, resid, title_prefix = "") {
+    dfp <- data.frame(fitted = fitted, resid = resid)
+    p1 <- ggplot(dfp, aes(fitted, resid)) +
+      geom_point(alpha = 0.6) +
+      geom_hline(yintercept = 0, linetype = 2) +
+      labs(title = paste0(title_prefix, "Residuals vs Fitted"),
+           x = "Fitted", y = "Residuals") +
+      theme_bw()
+    p2 <- ggplot(dfp, aes(sample = resid)) +
+      stat_qq() + stat_qq_line() +
+      labs(title = paste0(title_prefix, "Normal Q–Q Plot"),
+           x = "Theoretical Quantiles", y = "Sample Quantiles") +
+      theme_bw()
+    list(resid_vs_fitted = p1, qq_plot = p2)
+  }
+  
+  # Helper: compute R2 and AdjR2 given y and predictions
+  r2_adj <- function(y, yhat, p_no_intercept) {
+    n <- length(y)
+    sse <- sum((y - yhat)^2)
+    sst <- sum( (y - mean(y))^2 )
+    r2 <- 1 - sse/sst
+    adj <- 1 - (1 - r2) * (n - 1) / (n - p_no_intercept - 1)
+    list(R2 = r2, AdjR2 = adj)
+  }
+  
+  # -------------------------
+  # 1) OLS
+  # -------------------------
+  fit_ols <- lm(fml, data = data)
+  
+  # 10-fold CV RMSE for OLS (simple manual split)
+  # (We just average fold RMSEs; folds are random but reproducible.)
+  n <- nrow(model.frame(fml, data))
+  folds <- sample(rep(1:k, length.out = n))
+  y_all <- model.response(model.frame(fml, data))
+  cv_rmse_ols <- mean(sapply(1:k, function(f) {
+    train_idx <- which(folds != f); test_idx <- which(folds == f)
+    m <- lm(fml, data = data[train_idx, , drop = FALSE])
+    preds <- predict(m, newdata = data[test_idx, , drop = FALSE])
+    sqrt(mean((y_all[test_idx] - preds)^2))
+  }))
+  
+  # Tidy stats for OLS
+  ols_tidy <- broom::tidy(fit_ols, conf.int = TRUE, conf.level = 0.95)
+  # overall metrics
+  ols_glance <- broom::glance(fit_ols)
+  ols_fitted <- fitted(fit_ols)
+  ols_resid  <- resid(fit_ols)
+  ols_plots  <- make_plots(ols_fitted, ols_resid, "OLS: ")
+  
+  ols_out <- list(
+    metrics = list(
+      R2 = unname(ols_glance$r.squared),
+      AdjR2 = unname(ols_glance$adj.r.squared),
+      CV_RMSE = unname(cv_rmse_ols)
+    ),
+    table = ols_tidy %>%
+      rename(Estimate = estimate, SE = std.error, `t` = statistic, `p` = p.value,
+             CI_low = conf.low, CI_high = conf.high),
+    plots = ols_plots
+  )
+  
+  # -------------------------
+  # 2) Robust OLS (M-estimator via lmrob)
+  # -------------------------
+  fit_rob <- lmrob(fml, data = data)
+  
+  # 10-fold CV RMSE for Robust OLS (same scheme)
+  cv_rmse_rob <- mean(sapply(1:k, function(f) {
+    train_idx <- which(folds != f); test_idx <- which(folds == f)
+    m <- lmrob(fml, data = data[train_idx, , drop = FALSE])
+    preds <- predict(m, newdata = data[test_idx, , drop = FALSE])
+    sqrt(mean((y_all[test_idx] - preds)^2))
+  }))
+  
+  # Tidy stats for Robust OLS
+  # broom::tidy() works on lmrob; confint() too
+  rob_tidy <- broom::tidy(fit_rob)
+  rob_ci   <- as.data.frame(confint(fit_rob))
+  rob_ci$term <- rownames(rob_ci)
+  names(rob_ci)[1:2] <- c("CI_low", "CI_high")
+  rob_tidy <- rob_tidy %>%
+    left_join(rob_ci, by = "term") %>%
+    rename(Estimate = estimate, SE = std.error, `t` = statistic, `p` = p.value)
+  
+  # Robust model R2/AdjR2: compute from predictions (not perfect but informative)
+  rob_fitted <- predict(fit_rob)
+  rob_resid  <- y_all - rob_fitted
+  p_no_intercept_rob <- ncol(model.matrix(fit_rob)) - 1
+  rob_r2 <- r2_adj(y_all, rob_fitted, p_no_intercept_rob)
+  rob_plots <- make_plots(rob_fitted, rob_resid, "Robust OLS: ")
+  
+  rob_out <- list(
+    metrics = list(
+      R2 = unname(rob_r2$R2),
+      AdjR2 = unname(rob_r2$AdjR2),
+      CV_RMSE = unname(cv_rmse_rob)
+    ),
+    table = rob_tidy,
+    plots = rob_plots
+  )
+  
+  # -------------------------
+  # 3) Ridge (L2) via glmnet with 10-fold CV
+  # -------------------------
+  # Build X and y for glmnet (no intercept column; glmnet adds it)
+  mm <- model.matrix(fml, data = data)
+  y  <- y_all
+  X  <- mm[, colnames(mm) != "(Intercept)", drop = FALSE]
+  
+  cv_ridge <- cv.glmnet(
+    x = X, y = y,
+    alpha = 0,                 # ridge
+    nfolds = k,
+    family = "gaussian",
+    standardize = TRUE
+  )
+  lambda_min <- cv_ridge$lambda.min
+  # CV RMSE directly from cv.glmnet:
+  cv_rmse_ridge <- sqrt(min(cv_ridge$cvm))
+  
+  # Refit at lambda.min on full data to get coefficients and predictions
+  fit_ridge <- glmnet(X, y, alpha = 0, lambda = lambda_min, family = "gaussian", standardize = TRUE)
+  ridge_coef <- as.matrix(coef(fit_ridge))[, 1, drop = FALSE]
+  ridge_coef_df <- data.frame(
+    term = rownames(ridge_coef),
+    Estimate = as.numeric(ridge_coef),
+    row.names = NULL
+  )
+  
+  # Ridge SE/CI/t/p are not standard. We'll do a simple bootstrap
+  # to get SE and 95% CI (keep it small for speed & clarity).
+  set.seed(seed)
+  boot_mat <- matrix(NA_real_, nrow = B, ncol = nrow(ridge_coef))
+  colnames(boot_mat) <- rownames(ridge_coef)
+  for (b in 1:B) {
+    idx <- sample(seq_len(nrow(X)), replace = TRUE)
+    Xb  <- X[idx, , drop = FALSE]
+    yb  <- y[idx]
+    cvb <- cv.glmnet(Xb, yb, alpha = 0, nfolds = k, family = "gaussian", standardize = TRUE)
+    lb  <- cvb$lambda.min
+    fb  <- glmnet(Xb, yb, alpha = 0, lambda = lb, family = "gaussian", standardize = TRUE)
+    cb  <- as.numeric(coef(fb))
+    # Align length (intercept + p)
+    if (length(cb) == ncol(boot_mat)) boot_mat[b, ] <- cb
+  }
+  # Compute SE and CI from bootstrap
+  boot_se <- apply(boot_mat, 2, sd, na.rm = TRUE)
+  boot_ci <- t(apply(boot_mat, 2, function(z) quantile(z, c(0.025, 0.975), na.rm = TRUE)))
+  ridge_stats <- ridge_coef_df %>%
+    mutate(
+      SE = boot_se[term],
+      CI_low = boot_ci[term, 1],
+      CI_high = boot_ci[term, 2],
+      `t` = Estimate / SE,
+      `p` = 2 * pnorm(-abs(`t`))
+    )
+  
+  # Ridge R2/AdjR2 using fitted values at lambda.min
+  ridge_pred <- as.numeric(predict(fit_ridge, newx = X))
+  p_no_intercept_ridge <- ncol(X)  # number of predictors (no intercept)
+  ridge_r2 <- r2_adj(y, ridge_pred, p_no_intercept_ridge)
+  ridge_resid <- y - ridge_pred
+  ridge_plots <- make_plots(ridge_pred, ridge_resid, "Ridge: ")
+  
+  ridge_out <- list(
+    metrics = list(
+      R2 = unname(ridge_r2$R2),
+      AdjR2 = unname(ridge_r2$AdjR2),
+      CV_RMSE = unname(cv_rmse_ridge)
+    ),
+    table = ridge_stats,
+    plots = ridge_plots
+  )
+  
+  # Return everything neatly
+  list(
+    ols   = ols_out,
+    robust = rob_out,
+    ridge = ridge_out
+  )
+}
+
+# ============================================================
+# Helper: Compare 3 models (OLS / Robust / Bootstrap Ridge)
+# - Input: results list from fit_three_models()
+# - Outputs a clean, publication-style gt table
+# - Defaults:
+#     digits = 2  (coeffs & metrics)
+#     p_digits = 2 (p-values)
+#     "*" added if p < 0.05
+# ============================================================
+
+build_model_comparison_table <- function(results,
+                                         include_intercept = FALSE,
+                                         digits = 2,
+                                         p_digits = 2,
+                                         font_size = 12) {
+  suppressPackageStartupMessages({ library(dplyr); library(gt) })
+
+  # --- Extract and merge tables ---
+  ols_tab   <- results$ols$table    %>% select(term, Estimate, p) %>%
+    rename(OLS_Est = Estimate,   OLS_p = p)
+  rob_tab   <- results$robust$table %>% select(term, Estimate, p) %>%
+    rename(Robust_Est = Estimate, Robust_p = p)
+  ridge_tab <- results$ridge$table  %>% select(term, Estimate, p) %>%
+    rename(Boot_Est = Estimate,   Boot_p = p)
+
+  comb <- ols_tab %>%
+    full_join(rob_tab, by = "term") %>%
+    full_join(ridge_tab, by = "term")
+
+  if (!include_intercept) {
+    comb <- comb %>% filter(term != "(Intercept)")
+  }
+
+  # --- Formatting helpers ---
+  fmt_b <- function(x) ifelse(is.na(x), "", sprintf(paste0("%.", digits, "f"), x))
+  fmt_p <- function(x) {
+    ifelse(
+      is.na(x), "",
+      paste0(sprintf(paste0("%.", p_digits, "f"), x),
+             ifelse(x < 0.05, "*", ""))
+    )
+  }
+
+  out <- comb %>%
+    transmute(
+      Variable        = term,
+      OLS_Coeff       = fmt_b(OLS_Est),
+      OLS_P           = fmt_p(OLS_p),
+      Robust_Coeff    = fmt_b(Robust_Est),
+      Robust_P        = fmt_p(Robust_p),
+      Bootstrap_Coeff = fmt_b(Boot_Est),
+      Bootstrap_P     = fmt_p(Boot_p)
+    )
+
+  # --- Summary rows ---
+  r2_row <- tibble::tibble(
+    Variable        = "R² / Adj-R²",
+    OLS_Coeff       = sprintf("%.2f / %.2f", results$ols$metrics$R2,    results$ols$metrics$AdjR2),
+    OLS_P           = "",
+    Robust_Coeff    = sprintf("%.2f / %.2f", results$robust$metrics$R2, results$robust$metrics$AdjR2),
+    Robust_P        = "",
+    Bootstrap_Coeff = sprintf("%.2f / %.2f", results$ridge$metrics$R2,  results$ridge$metrics$AdjR2),
+    Bootstrap_P     = ""
+  )
+
+  rmse_row <- tibble::tibble(
+    Variable        = "CV-RMSE",
+    OLS_Coeff       = sprintf("%.2f", results$ols$metrics$CV_RMSE),
+    OLS_P           = "",
+    Robust_Coeff    = sprintf("%.2f", results$robust$metrics$CV_RMSE),
+    Robust_P        = "",
+    Bootstrap_Coeff = sprintf("%.2f", results$ridge$metrics$CV_RMSE),
+    Bootstrap_P     = ""
+  )
+
+  final_df <- dplyr::bind_rows(out, r2_row, rmse_row)
+
+  # --- Render table ---
+  gt(final_df) %>%
+    tab_header(title = md("**Model Comparison: OLS vs Robust vs Bootstrap**")) %>%
+    tab_spanner(label = "OLS",               columns = c(OLS_Coeff, OLS_P)) %>%
+    tab_spanner(label = "Robust",            columns = c(Robust_Coeff, Robust_P)) %>%
+    tab_spanner(label = "Bootstrap (Ridge)", columns = c(Bootstrap_Coeff, Bootstrap_P)) %>%
+    cols_label(
+      Variable = md("**Variable**"),
+      OLS_Coeff = "Coeff", OLS_P = "P-value",
+      Robust_Coeff = "Coeff", Robust_P = "P-value",
+      Bootstrap_Coeff = "Coeff", Bootstrap_P = "P-value"
+    ) %>%
+    tab_style(
+      style = cell_text(weight = "bold"),
+      locations = cells_body(rows = Variable %in% c("R² / Adj-R²", "CV-RMSE"))
+    ) %>%
+    tab_options(
+      table.font.names = "Arial",
+      table.font.size  = font_size,
+      data_row.padding = px(5)
+    )
+}
+```
+
+### All Population 
+
+#### Systolic 
+
+:::{.panel-tabset}
+
+##### 1. Potassium 
+
+```{r}
+#| results: asis
+result1 <- fit_three_models(
+  formula_str = "systolic_bp ~ age + sex + income_decile + avg_energy +
+                 alcohol_per_kj + magnesium_per_kj + potassium_per_kj +
+                 folate_per_kj + sodium_per_kj",
+  data = analytical_data,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl1 <- build_model_comparison_table(result1)
+tbl1
+```
+
+##### 2. Potassium to Sodium Ratio 
+
+```{r}
+result2 <- fit_three_models(
+  formula_str = "systolic_bp ~ age + sex + income_decile + avg_energy + alcohol_per_kj +
+                magnesium_per_kj + folate_per_kj + potassium_sodium_ratio",
+  data = analytical_data,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl2 <- build_model_comparison_table(result2)
+
+tbl2
+```
+:::
+
+#### Diastolic 
+
+:::{.panel-tabset}
+##### 1. Potassium 
+
+```{r}
+#| results: asis
+result3 <- fit_three_models(
+  formula_str = "diastolic_bp ~ age + sex + income_decile + avg_energy +
+                 alcohol_per_kj + magnesium_per_kj + potassium_per_kj +
+                 folate_per_kj + sodium_per_kj",
+  data = analytical_data,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl3 <- build_model_comparison_table(result3)
+tbl3
+```
+
+##### 2. Potassium to Sodium Ratio 
+
+```{r}
+result4 <- fit_three_models(
+  formula_str = "diastolic_bp ~ age + sex + income_decile + avg_energy + alcohol_per_kj +
+                magnesium_per_kj + folate_per_kj + potassium_sodium_ratio",
+  data = analytical_data,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl4 <- build_model_comparison_table(result4)
+
+tbl4
+```
+:::
+
+### Less than 55 years old population 
+
+#### Systolic 
+:::{.panel-tabset}
+##### 1. Potassium 
+
+```{r}
+#| results: asis
+df_lt55 <- dplyr::filter(analytical_data, age < 55)
+
+result_lt55_sys1 <- fit_three_models(
+  formula_str = "systolic_bp ~ age + sex + income_decile + avg_energy +
+                 alcohol_per_kj + magnesium_per_kj + potassium_per_kj +
+                 folate_per_kj + sodium_per_kj",
+  data = df_lt55,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl_lt55_sys1 <- build_model_comparison_table(result_lt55_sys1)
+tbl_lt55_sys1
+```
+
+##### 2. Potassium to Sodium Ratio 
+
+```{r}
+result_lt55_sys2 <- fit_three_models(
+  formula_str = "systolic_bp ~ age + sex + income_decile + avg_energy + alcohol_per_kj +
+                magnesium_per_kj + folate_per_kj + potassium_sodium_ratio",
+  data = df_lt55,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl_lt55_sys2 <- build_model_comparison_table(result_lt55_sys2)
+tbl_lt55_sys2
+```
+:::
+
+#### Diastolic 
+:::{.panel-tabset}
+##### 1. Potassium 
+
+```{r}
+#| results: asis
+result_lt55_dia1 <- fit_three_models(
+  formula_str = "diastolic_bp ~ age + sex + income_decile + avg_energy +
+                 alcohol_per_kj + magnesium_per_kj + potassium_per_kj +
+                 folate_per_kj + sodium_per_kj",
+  data = df_lt55,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl_lt55_dia1 <- build_model_comparison_table(result_lt55_dia1)
+tbl_lt55_dia1
+```
+
+##### 2. Potassium to Sodium Ratio 
+
+```{r}
+result_lt55_dia2 <- fit_three_models(
+  formula_str = "diastolic_bp ~ age + sex + income_decile + avg_energy + alcohol_per_kj +
+                magnesium_per_kj + folate_per_kj + potassium_sodium_ratio",
+  data = df_lt55,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl_lt55_dia2 <- build_model_comparison_table(result_lt55_dia2)
+tbl_lt55_dia2
+```
+:::
+### Older than 55 years old population 
+
+#### Systolic 
+:::{.panel-tabset}
+##### 1. Potassium 
+
+```{r}
+#| results: asis
+df_ge55 <- dplyr::filter(analytical_data, age >= 55)
+
+result_ge55_sys1 <- fit_three_models(
+  formula_str = "systolic_bp ~ age + sex + income_decile + avg_energy +
+                 alcohol_per_kj + magnesium_per_kj + potassium_per_kj +
+                 folate_per_kj + sodium_per_kj",
+  data = df_ge55,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl_ge55_sys1 <- build_model_comparison_table(result_ge55_sys1)
+tbl_ge55_sys1
+```
+
+##### 2. Potassium to Sodium Ratio 
+
+```{r}
+result_ge55_sys2 <- fit_three_models(
+  formula_str = "systolic_bp ~ age + sex + income_decile + avg_energy + alcohol_per_kj +
+                magnesium_per_kj + folate_per_kj + potassium_sodium_ratio",
+  data = df_ge55,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl_ge55_sys2 <- build_model_comparison_table(result_ge55_sys2)
+tbl_ge55_sys2
+```
+:::
+#### Diastolic 
+
+:::{.panel-tabset}
+##### 1. Potassium 
+
+```{r}
+#| results: asis
+result_ge55_dia1 <- fit_three_models(
+  formula_str = "diastolic_bp ~ age + sex + income_decile + avg_energy +
+                 alcohol_per_kj + magnesium_per_kj + potassium_per_kj +
+                 folate_per_kj + sodium_per_kj",
+  data = df_ge55,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl_ge55_dia1 <- build_model_comparison_table(result_ge55_dia1)
+tbl_ge55_dia1
+```
+
+##### 2. Potassium to Sodium Ratio 
+
+```{r}
+result_ge55_dia2 <- fit_three_models(
+  formula_str = "diastolic_bp ~ age + sex + income_decile + avg_energy + alcohol_per_kj +
+                magnesium_per_kj + folate_per_kj + potassium_sodium_ratio",
+  data = df_ge55,
+  k = 10, B = 1000, seed = 3888
+)
+
+tbl_ge55_dia2 <- build_model_comparison_table(result_ge55_dia2)
+tbl_ge55_dia2
+```
+:::
+
+```{r setup-metrics-analysis}
+#| include: false
+
+# Load required libraries
+library(dplyr)
+library(tidyr)
+library(gt)
+library(ggplot2)
+library(patchwork)
+library(tibble)
+
+# Set theme for consistent plotting
+theme_set(theme_minimal())
+
+# Define color palette for models
+model_colors <- c("OLS" = "#1b9e77", 
+                  "Robust" = "#d95f02", 
+                  "Bootstrap" = "#7570b3")
+```
+
+## Model Performance Comparison and Model Selection 
+
+```{r prepare-data}
+#| include: false
+
+# Helper function to extract metrics from a result object
+extract_model_metrics <- function(result, target, predictor, population = "All") {
+  bind_rows(
+    tibble(
+      Population = population,
+      Model = "OLS",
+      Target = target,
+      Predictor = predictor,
+      R2 = result$ols$metrics$R2,
+      AdjR2 = result$ols$metrics$AdjR2,
+      CV_RMSE = result$ols$metrics$CV_RMSE
+    ),
+    tibble(
+      Population = population,
+      Model = "Robust",
+      Target = target,
+      Predictor = predictor,
+      R2 = result$robust$metrics$R2,
+      AdjR2 = result$robust$metrics$AdjR2,
+      CV_RMSE = result$robust$metrics$CV_RMSE
+    ),
+    tibble(
+      Population = population,
+      Model = "Bootstrap",
+      Target = target,
+      Predictor = predictor,
+      R2 = result$ridge$metrics$R2,
+      AdjR2 = result$ridge$metrics$AdjR2,
+      CV_RMSE = result$ridge$metrics$CV_RMSE
+    )
+  )
+}
+
+# ============================================================
+# COLLECT ALL METRICS
+# ============================================================
+
+# Initialize empty list for all metrics
+all_population_metrics <- list()
+
+# ============================================================
+# ALL POPULATION MODELS
+# ============================================================
+
+# Assuming result1-4 are already fitted for all population
+all_pop_data <- bind_rows(
+  extract_model_metrics(result1, "Systolic BP", "Potassium", "All"),
+  extract_model_metrics(result2, "Systolic BP", "K/Na Ratio", "All"),
+  extract_model_metrics(result3, "Diastolic BP", "Potassium", "All"),
+  extract_model_metrics(result4, "Diastolic BP", "K/Na Ratio", "All")
+)
+
+# ============================================================
+# AGE ≤55 YEARS MODELS
+# ============================================================
+
+# Filter data for younger population
+data_young <- analytical_data %>% filter(age <= 55)
+
+# Fit models for ≤55 years if not already done
+if (!exists("result5")) {
+  result5 <- fit_three_models(
+    formula_str = "systolic_bp ~ age + sex + income_decile + avg_energy +
+                   alcohol_per_kj + magnesium_per_kj + potassium_per_kj +
+                   folate_per_kj + sodium_per_kj",
+    data = data_young,
+    k = 10, B = 1000, seed = 3888
+  )
+}
+
+if (!exists("result6")) {
+  result6 <- fit_three_models(
+    formula_str = "systolic_bp ~ age + sex + income_decile + avg_energy + 
+                   alcohol_per_kj + magnesium_per_kj + folate_per_kj + 
+                   potassium_sodium_ratio",
+    data = data_young,
+    k = 10, B = 1000, seed = 3888
+  )
+}
+
+if (!exists("result7")) {
+  result7 <- fit_three_models(
+    formula_str = "diastolic_bp ~ age + sex + income_decile + avg_energy +
+                   alcohol_per_kj + magnesium_per_kj + potassium_per_kj +
+                   folate_per_kj + sodium_per_kj",
+    data = data_young,
+    k = 10, B = 1000, seed = 3888
+  )
+}
+
+if (!exists("result8")) {
+  result8 <- fit_three_models(
+    formula_str = "diastolic_bp ~ age + sex + income_decile + avg_energy + 
+                   alcohol_per_kj + magnesium_per_kj + folate_per_kj + 
+                   potassium_sodium_ratio",
+    data = data_young,
+    k = 10, B = 1000, seed = 3888
+  )
+}
+
+young_pop_data <- bind_rows(
+  extract_model_metrics(result5, "Systolic BP", "Potassium", "≤55 years"),
+  extract_model_metrics(result6, "Systolic BP", "K/Na Ratio", "≤55 years"),
+  extract_model_metrics(result7, "Diastolic BP", "Potassium", "≤55 years"),
+  extract_model_metrics(result8, "Diastolic BP", "K/Na Ratio", "≤55 years")
+)
+
+# ============================================================
+# AGE >55 YEARS MODELS
+# ============================================================
+
+# Filter data for older population
+data_old <- analytical_data %>% filter(age > 55)
+
+# Fit models for >55 years if not already done
+if (!exists("result9")) {
+  result9 <- fit_three_models(
+    formula_str = "systolic_bp ~ age + sex + income_decile + avg_energy +
+                   alcohol_per_kj + magnesium_per_kj + potassium_per_kj +
+                   folate_per_kj + sodium_per_kj",
+    data = data_old,
+    k = 10, B = 1000, seed = 3888
+  )
+}
+
+if (!exists("result10")) {
+  result10 <- fit_three_models(
+    formula_str = "systolic_bp ~ age + sex + income_decile + avg_energy + 
+                    alcohol_per_kj + magnesium_per_kj + folate_per_kj + 
+                    potassium_sodium_ratio",
+    data = data_old,
+    k = 10, B = 1000, seed = 3888
+  )
+}
+
+if (!exists("result11")) {
+  result11 <- fit_three_models(
+    formula_str = "diastolic_bp ~ age + sex + income_decile + avg_energy +
+                    alcohol_per_kj + magnesium_per_kj + potassium_per_kj +
+                    folate_per_kj + sodium_per_kj",
+    data = data_old,
+    k = 10, B = 1000, seed = 3888
+  )
+}
+
+if (!exists("result12")) {
+  result12 <- fit_three_models(
+    formula_str = "diastolic_bp ~ age + sex + income_decile + avg_energy + 
+                    alcohol_per_kj + magnesium_per_kj + folate_per_kj + 
+                    potassium_sodium_ratio",
+    data = data_old,
+    k = 10, B = 1000, seed = 3888
+  )
+}
+
+old_pop_data <- bind_rows(
+  extract_model_metrics(result9, "Systolic BP", "Potassium", ">55 years"),
+  extract_model_metrics(result10, "Systolic BP", "K/Na Ratio", ">55 years"),
+  extract_model_metrics(result11, "Diastolic BP", "Potassium", ">55 years"),
+  extract_model_metrics(result12, "Diastolic BP", "K/Na Ratio", ">55 years")
+)
+
+# Combine all data
+complete_metrics <- bind_rows(all_pop_data, young_pop_data, old_pop_data)
+```
+
+```{r create-visualizations}
+# Function to create three separate plots for one population
+create_population_plots <- function(data, population_name) {
+  
+  # Split by predictor
+  potassium_data <- data %>% filter(Predictor == "Potassium")
+  ratio_data     <- data %>% filter(Predictor == "K/Na Ratio")
+  
+  # Safe max values for y-lims
+  max_r2    <- ifelse(length(complete_metrics$R2) > 0 && !all(is.na(complete_metrics$R2)),
+                      max(complete_metrics$R2, na.rm = TRUE) * 1.1, 1)
+  max_adjr2 <- ifelse(length(complete_metrics$AdjR2) > 0 && !all(is.na(complete_metrics$AdjR2)),
+                      max(complete_metrics$AdjR2, na.rm = TRUE) * 1.1, 1)
+  max_cv    <- ifelse(length(complete_metrics$CV_RMSE) > 0 && !all(is.na(complete_metrics$CV_RMSE)),
+                      max(complete_metrics$CV_RMSE, na.rm = TRUE) * 1.1, NA_real_)
+  
+  # ---- R^2 plots (Potassium vs K/Na) ----
+  p_r2_k <- ggplot(potassium_data, aes(x = Target, y = R2, fill = Model)) +
+    geom_bar(stat = "identity", position = position_dodge(0.9), width = 0.8) +
+    scale_fill_manual(values = model_colors) +
+    labs(title = paste(population_name, "- Potassium: R²"), y = "R²", x = "") +
+    theme(legend.position = "top",
+          axis.text.x = element_text(angle = 0, hjust = 0.5),
+          plot.title = element_text(size = 12, face = "bold")) +
+    ylim(0, max_r2)
+  
+  p_r2_ratio <- ggplot(ratio_data, aes(x = Target, y = R2, fill = Model)) +
+    geom_bar(stat = "identity", position = position_dodge(0.9), width = 0.8) +
+    scale_fill_manual(values = model_colors) +
+    labs(title = paste(population_name, "- K/Na Ratio: R²"), y = "R²", x = "") +
+    theme(legend.position = "top",
+          axis.text.x = element_text(angle = 0, hjust = 0.5),
+          plot.title = element_text(size = 12, face = "bold")) +
+    ylim(0, max_r2)
+  
+  r2_plot <- (p_r2_k | p_r2_ratio)
+  
+  # ---- Adjusted R^2 plots ----
+  p_adj_k <- ggplot(potassium_data, aes(x = Target, y = AdjR2, fill = Model)) +
+    geom_bar(stat = "identity", position = position_dodge(0.9), width = 0.8) +
+    scale_fill_manual(values = model_colors) +
+    labs(title = paste(population_name, "- Potassium: Adjusted R²"), y = "Adjusted R²", x = "") +
+    theme(legend.position = "top",
+          axis.text.x = element_text(angle = 0, hjust = 0.5),
+          plot.title = element_text(size = 12, face = "bold")) +
+    ylim(0, max_adjr2)
+  
+  p_adj_ratio <- ggplot(ratio_data, aes(x = Target, y = AdjR2, fill = Model)) +
+    geom_bar(stat = "identity", position = position_dodge(0.9), width = 0.8) +
+    scale_fill_manual(values = model_colors) +
+    labs(title = paste(population_name, "- K/Na Ratio: Adjusted R²"), y = "Adjusted R²", x = "") +
+    theme(legend.position = "top",
+          axis.text.x = element_text(angle = 0, hjust = 0.5),
+          plot.title = element_text(size = 12, face = "bold")) +
+    ylim(0, max_adjr2)
+  
+  adjr2_plot <- (p_adj_k | p_adj_ratio)
+  
+  # ---- CV-RMSE plots ----
+  p_cv_k <- ggplot(potassium_data, aes(x = Target, y = CV_RMSE, fill = Model)) +
+    geom_bar(stat = "identity", position = position_dodge(0.9), width = 0.8) +
+    scale_fill_manual(values = model_colors) +
+    labs(title = paste(population_name, "- Potassium: CV-RMSE (Lower is Better)"),
+         y = "CV-RMSE", x = "") +
+    theme(legend.position = "top",
+          axis.text.x = element_text(angle = 0, hjust = 0.5),
+          plot.title = element_text(size = 12, face = "bold")) +
+    { if (!is.na(max_cv)) ylim(0, max_cv) else list() }
+  
+  p_cv_ratio <- ggplot(ratio_data, aes(x = Target, y = CV_RMSE, fill = Model)) +
+    geom_bar(stat = "identity", position = position_dodge(0.9), width = 0.8) +
+    scale_fill_manual(values = model_colors) +
+    labs(title = paste(population_name, "- K/Na Ratio: CV-RMSE (Lower is Better)"),
+         y = "CV-RMSE", x = "") +
+    theme(legend.position = "top",
+          axis.text.x = element_text(angle = 0, hjust = 0.5),
+          plot.title = element_text(size = 12, face = "bold")) +
+    { if (!is.na(max_cv)) ylim(0, max_cv) else list() }
+  
+  cvrmse_plot <- (p_cv_k | p_cv_ratio)
+  
+  # Return as three separate plots
+  list(
+    r2     = r2_plot,
+    adjr2  = adjr2_plot,
+    cvrmse = cvrmse_plot
+  )
+}
+
+# Create plots per population (each is a list of 3 plots)
+plots_all   <- create_population_plots(all_pop_data,   "All Population")
+plots_young <- create_population_plots(young_pop_data, "Population ≤55 Years")
+plots_old   <- create_population_plots(old_pop_data,   "Population >55 Years")
+```
+
+### All Population
+
+```{r table-all-population}
+#| label: tbl-all-population
+#| tbl-cap: "Model performance metrics for all population"
+
+all_pop_table <- all_pop_data %>%
+  mutate(Group = paste(Target, "–", Predictor)) %>%      # no md() here
+  arrange(Target, Predictor, Model) %>%
+  gt(groupname_col = "Group") %>%
+  tab_header(
+    title = md("**Model Performance - All Population**"),
+    subtitle = md("*Comparison of OLS, Robust OLS, and Bootstrap models*")
+  ) %>%
+  # ⬇️ Bold the row-group headers
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_row_groups(groups = unique(paste(all_pop_data$Target, "–", all_pop_data$Predictor)))
+  ) %>%
+  cols_label(
+    Model = md("**Model Type**"),
+    Target = md("**Target**"),
+    Predictor = md("**Predictor**"),
+    R2 = md("**R²**"),
+    AdjR2 = md("**Adj-R²**"),
+    CV_RMSE = md("**CV-RMSE**")
+  ) %>%
+  fmt_number(columns = c(R2, AdjR2), decimals = 4) %>%
+  fmt_number(columns = CV_RMSE, decimals = 2) %>%
+  tab_style(
+    style = list(cell_fill(color = "#f0f8ff"), cell_text(weight = "bold")),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#e6f3ff"),
+    locations = cells_body(rows = Model == "Bootstrap")
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "bottom", color = "#d3d3d3", weight = px(1)),
+    locations = cells_body()
+  ) %>%
+  cols_hide(c(Population, Target, Predictor, Group)) %>%
+  tab_options(
+    table.font.names = "Arial",
+    table.font.size = 12,
+    heading.title.font.size = 16,
+    data_row.padding = px(5),
+    table.width = pct(100)
+  )
+
+all_pop_table
+```
+
+:::{.panel-tabset}
+
+#### R²
+```{r}
+#| label: fig-all-r2
+#| fig-cap: "Model performance (R²) comparison for all population"
+#| fig-width: 12
+#| fig-height: 6
+plots_all$r2
+```
+
+#### Adj-R²
+```{r}
+#| label: fig-all-adjr2
+#| fig-cap: "Model performance (Adjusted R²) comparison for all population"
+#| fig-width: 12
+#| fig-height: 6
+plots_all$adjr2
+```
+
+#### CV-RMSE
+```{r}
+#| label: fig-all-cvrmse
+#| fig-cap: "Model performance (CV-RMSE) comparison for all population"
+#| fig-width: 12
+#| fig-height: 6
+plots_all$cvrmse
+```
+:::
+
+
+
+
+### Population ≤55 Years
+
+```{r table-young-population}
+#| label: tbl-young-population
+#| tbl-cap: "Model performance metrics for population ≤55 years"
+
+young_pop_table <- young_pop_data %>%
+  mutate(Group = paste(Target, "–", Predictor)) %>%   # no md() here
+  arrange(Target, Predictor, Model) %>%
+  gt(groupname_col = "Group") %>%
+  tab_header(
+    title = md("**Model Performance - Population ≤55 Years**"),
+    subtitle = md("*Comparison of OLS, Robust OLS, and Bootstrap models*")
+  ) %>%
+  # Bold row-group headers
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_row_groups(
+      groups = unique(paste(young_pop_data$Target, "–", young_pop_data$Predictor))
+    )
+  ) %>%
+  cols_label(
+    Model = md("**Model Type**"),
+    Target = md("**Target**"),
+    Predictor = md("**Predictor**"),
+    R2 = md("**R²**"),
+    AdjR2 = md("**Adj-R²**"),
+    CV_RMSE = md("**CV-RMSE**")
+  ) %>%
+  fmt_number(columns = c(R2, AdjR2), decimals = 4) %>%
+  fmt_number(columns = CV_RMSE, decimals = 2) %>%
+  tab_style(
+    style = list(cell_fill(color = "#fff3cd"), cell_text(weight = "bold")),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#fff9e6"),
+    locations = cells_body(rows = Model == "Bootstrap")
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "bottom", color = "#d3d3d3", weight = px(1)),
+    locations = cells_body()
+  ) %>%
+  cols_hide(c(Population, Target, Predictor, Group)) %>%
+  tab_options(
+    table.font.names = "Arial",
+    table.font.size = 12,
+    heading.title.font.size = 16,
+    data_row.padding = px(5),
+    table.width = pct(100)
+  )
+
+young_pop_table
+```
+
+:::{.panel-tabset}
+#### R²
+```{r}
+#| label: fig-young-r2
+#| fig-cap: "Model performance (R²) comparison for population ≤55 years"
+#| fig-width: 12
+#| fig-height: 6
+plots_young$r2
+```
+
+#### Adj-R²
+```{r}
+#| label: fig-young-adjr2
+#| fig-cap: "Model performance (Adjusted R²) comparison for population ≤55 years"
+#| fig-width: 12
+#| fig-height: 6
+plots_young$adjr2
+```
+
+#### CV-RMSE
+```{r}
+#| label: fig-young-cvrmse
+#| fig-cap: "Model performance (CV-RMSE) comparison for population ≤55 years"
+#| fig-width: 12
+#| fig-height: 6
+plots_young$cvrmse
+```
+:::
+
+### Population >55 Years
+
+```{r table-old-population}
+old_pop_table <- old_pop_data %>%
+  mutate(Group = paste(Target, "–", Predictor)) %>%   # no md() here
+  arrange(Target, Predictor, Model) %>%
+  gt(groupname_col = "Group") %>%
+  tab_header(
+    title = md("**Model Performance - Population >55 Years**"),
+    subtitle = md("*Comparison of OLS, Robust OLS, and Bootstrap models*")
+  ) %>%
+  # Bold row-group headers
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_row_groups(
+      groups = unique(paste(old_pop_data$Target, "–", old_pop_data$Predictor))
+    )
+  ) %>%
+  cols_label(
+    Model = md("**Model Type**"),
+    Target = md("**Target**"),
+    Predictor = md("**Predictor**"),
+    R2 = md("**R²**"),
+    AdjR2 = md("**Adj-R²**"),
+    CV_RMSE = md("**CV-RMSE**")
+  ) %>%
+  fmt_number(columns = c(R2, AdjR2), decimals = 4) %>%
+  fmt_number(columns = CV_RMSE, decimals = 2) %>%
+  tab_style(
+    style = list(cell_fill(color = "#f0fff0"), cell_text(weight = "bold")),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#f5fff5"),
+    locations = cells_body(rows = Model == "Bootstrap")
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "bottom", color = "#d3d3d3", weight = px(1)),
+    locations = cells_body()
+  ) %>%
+  cols_hide(c(Population, Target, Predictor, Group)) %>%
+  tab_options(
+    table.font.names = "Arial",
+    table.font.size = 12,
+    heading.title.font.size = 16,
+    data_row.padding = px(5),
+    table.width = pct(100)
+  )
+
+old_pop_table
+```
+
+:::{.panel-tabset}
+#### R²
+```{r}
+#| label: fig-old-r2
+#| fig-cap: "Model performance (R²) comparison for population >55 years"
+#| fig-width: 12
+#| fig-height: 6
+plots_old$r2
+```
+
+#### Adj-R²
+```{r}
+#| label: fig-old-adjr2
+#| fig-cap: "Model performance (Adjusted R²) comparison for population >55 years"
+#| fig-width: 12
+#| fig-height: 6
+plots_old$adjr2
+```
+
+#### CV-RMSE
+```{r}
+#| label: fig-old-cvrmse
+#| fig-cap: "Model performance (CV-RMSE) comparison for population >55 years"
+#| fig-width: 12
+#| fig-height: 6
+plots_old$cvrmse
+```
+:::
+
+### Note on model selection 
+
+Across all populations and outcome–predictor pairs, the bootstrap ridge model consistently achieved comparable or slightly superior $R^2$ and adjusted-$R^2$ values relative to both the OLS and robust estimators, while maintaining lower or equivalent cross-validated RMSE. This indicates that the bootstrap approach offered more stable predictive performance, especially in the presence of sampling variability and potential multicollinearity among nutritional predictors. By repeatedly resampling and regularizing parameter estimates, the bootstrap ridge method mitigates overfitting and reduces variance without substantially increasing bias. Its robustness across age strata and blood pressure outcomes thus justifies its use as the preferred estimation framework, providing a balanced trade-off between model accuracy and generalizability suitable for population-level inference.
+
+## Model Diagnostic 
+
+Since the bootstrap model demonstrated the most stable and consistent performance across all populations, we focus subsequent analyses on its diagnostics. Examining the bootstrap model alone allows us to assess residual patterns and distributional assumptions without redundancy across methods. This targeted evaluation ensures that model adequacy and potential deviations are interpreted in the context of the chosen, best-performing estimator.
+
+### Model Diagnostics – Bootstrap Models
+
+#### All Population
+:::{.panel-tabset}
+##### Systolic BP – Potassium
+```{r}
+#| label: fig-diag-all-sys-k
+#| fig-cap: "Bootstrap (ridge) diagnostics — All population: Systolic BP ~ Potassium"
+#| fig-width: 12
+#| fig-height: 5
+result1$ridge$plots$resid_vs_fitted | result1$ridge$plots$qq_plot
+```
+
+##### Systolic BP – K/Na Ratio
+```{r}
+#| label: fig-diag-all-sys-kna
+#| fig-cap: "Bootstrap (ridge) diagnostics — All population: Systolic BP ~ K/Na Ratio"
+#| fig-width: 12
+#| fig-height: 5
+result2$ridge$plots$resid_vs_fitted | result2$ridge$plots$qq_plot
+```
+
+##### Diastolic BP – Potassium
+```{r}
+#| label: fig-diag-all-dia-k
+#| fig-cap: "Bootstrap (ridge) diagnostics — All population: Diastolic BP ~ Potassium"
+#| fig-width: 12
+#| fig-height: 5
+result3$ridge$plots$resid_vs_fitted | result3$ridge$plots$qq_plot
+```
+
+##### Diastolic BP – K/Na Ratio
+```{r}
+#| label: fig-diag-all-dia-kna
+#| fig-cap: "Bootstrap (ridge) diagnostics — All population: Diastolic BP ~ K/Na Ratio"
+#| fig-width: 12
+#| fig-height: 5
+result4$ridge$plots$resid_vs_fitted | result4$ridge$plots$qq_plot
+```
+:::
+
+
+#### Population ≤55 Years
+:::{.panel-tabset}
+##### Systolic BP – Potassium
+```{r}
+#| label: fig-diag-young-sys-k
+#| fig-cap: "Bootstrap (ridge) diagnostics — ≤55 years: Systolic BP ~ Potassium"
+#| fig-width: 12
+#| fig-height: 5
+result5$ridge$plots$resid_vs_fitted | result5$ridge$plots$qq_plot
+```
+
+##### Systolic BP – K/Na Ratio
+```{r}
+#| label: fig-diag-young-sys-kna
+#| fig-cap: "Bootstrap (ridge) diagnostics — ≤55 years: Systolic BP ~ K/Na Ratio"
+#| fig-width: 12
+#| fig-height: 5
+result6$ridge$plots$resid_vs_fitted | result6$ridge$plots$qq_plot
+```
+
+##### Diastolic BP – Potassium
+```{r}
+#| label: fig-diag-young-dia-k
+#| fig-cap: "Bootstrap (ridge) diagnostics — ≤55 years: Diastolic BP ~ Potassium"
+#| fig-width: 12
+#| fig-height: 5
+result7$ridge$plots$resid_vs_fitted | result7$ridge$plots$qq_plot
+```
+
+##### Diastolic BP – K/Na Ratio
+```{r}
+#| label: fig-diag-young-dia-kna
+#| fig-cap: "Bootstrap (ridge) diagnostics — ≤55 years: Diastolic BP ~ K/Na Ratio"
+#| fig-width: 12
+#| fig-height: 5
+result8$ridge$plots$resid_vs_fitted | result8$ridge$plots$qq_plot
+```
+:::
+
+
+#### Population >55 Years
+:::{.panel-tabset}
+##### Systolic BP – Potassium
+```{r}
+#| label: fig-diag-old-sys-k
+#| fig-cap: "Bootstrap (ridge) diagnostics — >55 years: Systolic BP ~ Potassium"
+#| fig-width: 12
+#| fig-height: 5
+result9$ridge$plots$resid_vs_fitted | result9$ridge$plots$qq_plot
+```
+
+##### Systolic BP – K/Na Ratio
+```{r}
+#| label: fig-diag-old-sys-kna
+#| fig-cap: "Bootstrap (ridge) diagnostics — >55 years: Systolic BP ~ K/Na Ratio"
+#| fig-width: 12
+#| fig-height: 5
+result10$ridge$plots$resid_vs_fitted | result10$ridge$plots$qq_plot
+```
+
+##### Diastolic BP – Potassium
+```{r}
+#| label: fig-diag-old-dia-k
+#| fig-cap: "Bootstrap (ridge) diagnostics — >55 years: Diastolic BP ~ Potassium"
+#| fig-width: 12
+#| fig-height: 5
+result11$ridge$plots$resid_vs_fitted | result11$ridge$plots$qq_plot
+```
+
+##### Diastolic BP – K/Na Ratio
+```{r}
+#| label: fig-diag-old-dia-kna
+#| fig-cap: "Bootstrap (ridge) diagnostics — >55 years: Diastolic BP ~ K/Na Ratio"
+#| fig-width: 12
+#| fig-height: 5
+result12$ridge$plots$resid_vs_fitted | result12$ridge$plots$qq_plot
+```
+:::
+
+### Note on Model Diagnostics 
+
+The model diagnostics across all populations indicate satisfactory model behavior and good fit. Residuals appear evenly dispersed around zero without systematic patterns, suggesting that linearity and homoscedasticity assumptions are met. The QQ plots show residuals closely following the theoretical normal line, confirming approximate normality and validating that the bootstrap ridge model provides reliable and well-calibrated estimates suitable for inference and prediction.
+
+
+## Results
+
+### All Population – Bootstrap Ridge Summaries
+
+#### Potassium
+
+```{r}
+#| label: tbl-all-potassium
+#| tbl-cap: "Bootstrap ridge regression summary for all population – Potassium"
+#| warning: false
+#| message: false
+
+# ---- dependencies ----
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(gt)
+  library(tibble)
+})
+
+# ---- pretty labels for variables ----
+var_labels <- c(
+  age = "Age",
+  sex = "Sex",
+  income_decile = "Income Decile",
+  avg_energy = "Avg Energy",
+  alcohol_per_kj = "Alcohol per kJ",
+  magnesium_per_kj = "Magnesium per kJ",
+  potassium_per_kj = "Potassium per kJ",
+  folate_per_kj = "Folate per kJ",
+  sodium_per_kj = "Sodium per kJ",
+  potassium_sodium_ratio = "Potassium:Sodium Ratio"
+)
+
+# ---- helper to extract aligned coeffs/p-values from a ridge result ----
+extract_coeffs <- function(res, keep_terms) {
+  stopifnot(!is.null(res$ridge$table))
+  res$ridge$table %>%
+    transmute(
+      term,
+      Coeff  = Estimate,  # correct names from your ridge table
+      Pvalue = p
+    ) %>%
+    filter(term != "(Intercept)") %>%
+    right_join(tibble(term = keep_terms), by = "term") %>%
+    mutate(Variable = dplyr::recode(term, !!!var_labels)) %>%
+    select(Variable, Coeff, Pvalue)
+}
+
+# terms in the potassium model
+terms_potassium <- c(
+  "age","sex","income_decile","avg_energy","alcohol_per_kj",
+  "magnesium_per_kj","potassium_per_kj","folate_per_kj","sodium_per_kj"
+)
+
+# diastolic = result3, systolic = result1 (Potassium specs per your code)
+dia_pk  <- extract_coeffs(result3, terms_potassium)
+sys_pk  <- extract_coeffs(result1, terms_potassium)
+
+tbl_potassium <- dia_pk %>%
+  rename(Diastolic_Coeff = Coeff, Diastolic_P = Pvalue) %>%
+  left_join(
+    sys_pk %>% rename(Systolic_Coeff = Coeff, Systolic_P = Pvalue),
+    by = "Variable"
+  )
+
+# add a metrics row at the bottom
+metrics_row_pk <- tibble(
+  Variable        = "R² / Adj-R²",
+  Diastolic_Coeff = result3$ridge$metrics$R2,
+  Diastolic_P     = result3$ridge$metrics$AdjR2,
+  Systolic_Coeff  = result1$ridge$metrics$R2,
+  Systolic_P      = result1$ridge$metrics$AdjR2
+)
+
+bind_rows(tbl_potassium, metrics_row_pk) %>%
+  gt() %>%
+  tab_header(
+    title = md("**All Population – Potassium**"),
+    subtitle = md("*Bootstrap Ridge Coefficients and P-values*")
+  ) %>%
+  tab_spanner(label = md("**Diastolic**"),
+              columns = c(Diastolic_Coeff, Diastolic_P)) %>%
+  tab_spanner(label = md("**Systolic**"),
+              columns = c(Systolic_Coeff, Systolic_P)) %>%
+  cols_label(
+    Variable = md("**Variable**"),
+    Diastolic_Coeff = "Coeff", Diastolic_P = "P-value",
+    Systolic_Coeff  = "Coeff", Systolic_P  = "P-value"
+  ) %>%
+  fmt_number(columns = c(Diastolic_Coeff, Systolic_Coeff), decimals = 4) %>%
+  fmt_number(columns = c(Diastolic_P, Systolic_P), decimals = 3) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Variable == "R² / Adj-R²")
+  )
+```
+
+Among the three nutrients of interest—**magnesium**, **potassium**, and **sodium**—the bootstrap ridge results reveal distinct relationships with both systolic and diastolic blood pressure.
+
+- **Magnesium per kJ** shows a strong, statistically significant *negative* association with both outcomes (p < 0.01), suggesting higher magnesium intake is linked to lower blood pressure levels.
+- **Potassium per kJ**, in contrast, is not statistically significant for either diastolic (p = 0.75) or systolic (p = 0.23) blood pressure, indicating no clear effect in the adjusted model.
+- **Sodium per kJ** also lacks statistical significance (p > 0.5), implying that within this population, sodium variation does not independently predict blood pressure after controlling for other covariates.
+
+Overall, only **magnesium** demonstrates a robust and consistent relationship, reinforcing its potential role as a key nutrient associated with blood pressure regulation in the all-population model.
+
+#### Potassium-to-Sodium Ratio
+
+```{r}
+#| label: tbl-all-kna
+#| tbl-cap: "Bootstrap ridge regression summary for all population – Potassium-to-Sodium Ratio"
+#| warning: false
+#| message: false
+
+# terms in the K/Na model
+terms_kna <- c(
+  "age","sex","income_decile","avg_energy","alcohol_per_kj",
+  "magnesium_per_kj","folate_per_kj","potassium_sodium_ratio"
+)
+
+# diastolic = result4, systolic = result2 (K/Na specs per your code)
+dia_kna <- extract_coeffs(result4, terms_kna)
+sys_kna <- extract_coeffs(result2, terms_kna)
+
+tbl_kna <- dia_kna %>%
+  rename(Diastolic_Coeff = Coeff, Diastolic_P = Pvalue) %>%
+  left_join(
+    sys_kna %>% rename(Systolic_Coeff = Coeff, Systolic_P = Pvalue),
+    by = "Variable"
+  )
+
+metrics_row_kna <- tibble(
+  Variable        = "R² / Adj-R²",
+  Diastolic_Coeff = result4$ridge$metrics$R2,
+  Diastolic_P     = result4$ridge$metrics$AdjR2,
+  Systolic_Coeff  = result2$ridge$metrics$R2,
+  Systolic_P      = result2$ridge$metrics$AdjR2
+)
+
+bind_rows(tbl_kna, metrics_row_kna) %>%
+  gt() %>%
+  tab_header(
+    title = md("**All Population – Potassium-to-Sodium Ratio**"),
+    subtitle = md("*Bootstrap Ridge Coefficients and P-values*")
+  ) %>%
+  tab_spanner(label = md("**Diastolic**"),
+              columns = c(Diastolic_Coeff, Diastolic_P)) %>%
+  tab_spanner(label = md("**Systolic**"),
+              columns = c(Systolic_Coeff, Systolic_P)) %>%
+  cols_label(
+    Variable = md("**Variable**"),
+    Diastolic_Coeff = "Coeff", Diastolic_P = "P-value",
+    Systolic_Coeff  = "Coeff", Systolic_P  = "P-value"
+  ) %>%
+  fmt_number(columns = c(Diastolic_Coeff, Systolic_Coeff), decimals = 4) %>%
+  fmt_number(columns = c(Diastolic_P, Systolic_P), decimals = 3) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Variable == "R² / Adj-R²")
+  )
+```
+
+When nutrients are expressed as the **potassium-to-sodium ratio**, the results indicate that none of the three key nutrients—**magnesium**, **folate**, or the **potassium:sodium ratio**—are simultaneously strong and significant predictors of blood pressure after model adjustment.
+
+* **Magnesium per kJ** remains a significant *negative* predictor for both diastolic (p < 0.001) and systolic (p = 0.012) blood pressure, suggesting a consistent inverse association even after accounting for the potassium-to-sodium balance.
+* **Folate per kJ** shows marginal, non-significant effects (p ≈ 0.08–0.10), indicating limited independent influence in this model.
+* The **potassium:sodium ratio** itself is not statistically significant for either outcome (p = 0.74 for diastolic, p = 0.66 for systolic), suggesting that once energy-adjusted micronutrients and lifestyle covariates are considered, the ratio does not independently explain blood pressure variation in the general population.
+
+### Population ≤55 Years – Bootstrap Ridge Summaries
+
+#### Potassium
+```{r}
+#| label: tbl-young-potassium
+#| tbl-cap: "Bootstrap ridge regression summary for population ≤55 years – Potassium"
+#| warning: false
+#| message: false
+
+suppressPackageStartupMessages({
+  library(dplyr); library(gt); library(tibble)
+})
+
+# Pretty labels
+var_labels <- c(
+  age = "Age", sex = "Sex", income_decile = "Income Decile",
+  avg_energy = "Avg Energy", alcohol_per_kj = "Alcohol per kJ",
+  magnesium_per_kj = "Magnesium per kJ", potassium_per_kj = "Potassium per kJ",
+  folate_per_kj = "Folate per kJ", sodium_per_kj = "Sodium per kJ",
+  potassium_sodium_ratio = "Potassium:Sodium Ratio"
+)
+
+# Extract helper
+extract_coeffs <- function(res, keep_terms) {
+  stopifnot(!is.null(res$ridge$table))
+  res$ridge$table %>%
+    transmute(term, Coeff = Estimate, Pvalue = p) %>%
+    filter(term != "(Intercept)") %>%
+    right_join(tibble(term = keep_terms), by = "term") %>%
+    mutate(Variable = dplyr::recode(term, !!!var_labels)) %>%
+    select(Variable, Coeff, Pvalue)
+}
+
+terms_potassium <- c(
+  "age","sex","income_decile","avg_energy","alcohol_per_kj",
+  "magnesium_per_kj","potassium_per_kj","folate_per_kj","sodium_per_kj"
+)
+
+# ≤55 mapping: systolic=result5, diastolic=result7
+dia_pk_y  <- extract_coeffs(result7, terms_potassium)
+sys_pk_y  <- extract_coeffs(result5, terms_potassium)
+
+tbl_young_pk <- dia_pk_y %>%
+  rename(Diastolic_Coeff = Coeff, Diastolic_P = Pvalue) %>%
+  left_join(sys_pk_y %>% rename(Systolic_Coeff = Coeff, Systolic_P = Pvalue),
+            by = "Variable")
+
+metrics_row_y_pk <- tibble(
+  Variable        = "R² / Adj-R²",
+  Diastolic_Coeff = result7$ridge$metrics$R2,
+  Diastolic_P     = result7$ridge$metrics$AdjR2,
+  Systolic_Coeff  = result5$ridge$metrics$R2,
+  Systolic_P      = result5$ridge$metrics$AdjR2
+)
+
+bind_rows(tbl_young_pk, metrics_row_y_pk) %>%
+  gt() %>%
+  tab_header(
+    title = md("**Population ≤55 Years – Potassium**"),
+    subtitle = md("*Bootstrap Ridge Coefficients and P-values*")
+  ) %>%
+  tab_spanner(label = md("**Diastolic**"),
+              columns = c(Diastolic_Coeff, Diastolic_P)) %>%
+  tab_spanner(label = md("**Systolic**"),
+              columns = c(Systolic_Coeff, Systolic_P)) %>%
+  cols_label(
+    Variable = md("**Variable**"),
+    Diastolic_Coeff = "Coeff", Diastolic_P = "P-value",
+    Systolic_Coeff  = "Coeff", Systolic_P  = "P-value"
+  ) %>%
+  fmt_number(columns = c(Diastolic_Coeff, Systolic_Coeff), decimals = 4) %>%
+  fmt_number(columns = c(Diastolic_P, Systolic_P), decimals = 3) %>%
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(rows = Variable == "R² / Adj-R²"))
+```
+
+In adults aged ≤55 years, the model highlights that nutrient–blood pressure relationships are more pronounced for **magnesium** and **folate** than for potassium.
+
+* **Magnesium per kJ** shows a strong and statistically significant *negative* association with both diastolic (p < 0.001) and systolic (p < 0.001) blood pressure, reinforcing its protective role in maintaining lower blood pressure among younger adults.
+* **Potassium per kJ** is not significant for diastolic BP (p = 0.52) but becomes *positively* associated with systolic BP (p = 0.021), suggesting a potential differential effect across BP components or collinearity with other electrolytes.
+* **Sodium per kJ** remains non-significant for both outcomes (p > 0.05), indicating limited independent influence after adjusting for other dietary and demographic covariates.
+  Overall, magnesium consistently emerges as the strongest and most reliable inverse predictor of blood pressure within the younger population.
+
+#### Potassium-to-Sodium Ratio
+```{r}
+#| label: tbl-young-kna
+#| tbl-cap: "Bootstrap ridge regression summary for population ≤55 years – Potassium-to-Sodium Ratio"
+#| warning: false
+#| message: false
+
+terms_kna <- c(
+  "age","sex","income_decile","avg_energy","alcohol_per_kj",
+  "magnesium_per_kj","folate_per_kj","potassium_sodium_ratio"
+)
+
+# ≤55 mapping: systolic=result6, diastolic=result8
+dia_kna_y <- extract_coeffs(result8, terms_kna)
+sys_kna_y <- extract_coeffs(result6, terms_kna)
+
+tbl_young_kna <- dia_kna_y %>%
+  rename(Diastolic_Coeff = Coeff, Diastolic_P = Pvalue) %>%
+  left_join(sys_kna_y %>% rename(Systolic_Coeff = Coeff, Systolic_P = Pvalue),
+            by = "Variable")
+
+metrics_row_y_kna <- tibble(
+  Variable        = "R² / Adj-R²",
+  Diastolic_Coeff = result8$ridge$metrics$R2,
+  Diastolic_P     = result8$ridge$metrics$AdjR2,
+  Systolic_Coeff  = result6$ridge$metrics$R2,
+  Systolic_P      = result6$ridge$metrics$AdjR2
+)
+
+bind_rows(tbl_young_kna, metrics_row_y_kna) %>%
+  gt() %>%
+  tab_header(
+    title = md("**Population ≤55 Years – Potassium-to-Sodium Ratio**"),
+    subtitle = md("*Bootstrap Ridge Coefficients and P-values*")
+  ) %>%
+  tab_spanner(label = md("**Diastolic**"),
+              columns = c(Diastolic_Coeff, Diastolic_P)) %>%
+  tab_spanner(label = md("**Systolic**"),
+              columns = c(Systolic_Coeff, Systolic_P)) %>%
+  cols_label(
+    Variable = md("**Variable**"),
+    Diastolic_Coeff = "Coeff", Diastolic_P = "P-value",
+    Systolic_Coeff  = "Coeff", Systolic_P  = "P-value"
+  ) %>%
+  fmt_number(columns = c(Diastolic_Coeff, Systolic_Coeff), decimals = 4) %>%
+  fmt_number(columns = c(Diastolic_P, Systolic_P), decimals = 3) %>%
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(rows = Variable == "R² / Adj-R²"))
+```
+
+Among adults aged ≤55 years, the relationships between the key nutrients—**magnesium**, **folate**, and the **potassium:sodium ratio**—show distinct patterns.
+
+* **Magnesium per kJ** remains a strong and statistically significant *negative* predictor for both diastolic (p < 0.001) and systolic (p = 0.014) blood pressure, confirming its consistent inverse association with BP even after controlling for the potassium–sodium balance.
+* **Folate per kJ** shows a modest, significant negative association with systolic BP (p = 0.043) but not with diastolic BP (p = 0.16), suggesting a potential, but weaker, protective effect for systolic outcomes.
+* The **potassium:sodium ratio** itself is non-significant for both diastolic (p = 0.29) and systolic (p = 0.78) BP, implying that within this younger group, individual nutrient effects—particularly magnesium—are more influential than their combined ratio in explaining blood pressure variation.
+
+
+### Population >55 Years – Bootstrap Ridge Summaries
+
+#### Potassium
+```{r}
+#| label: tbl-old-potassium
+#| tbl-cap: "Bootstrap ridge regression summary for population >55 years – Potassium"
+#| warning: false
+#| message: false
+
+# >55 mapping: systolic=result9, diastolic=result11
+dia_pk_o  <- extract_coeffs(result11, terms_potassium)
+sys_pk_o  <- extract_coeffs(result9,  terms_potassium)
+
+tbl_old_pk <- dia_pk_o %>%
+  rename(Diastolic_Coeff = Coeff, Diastolic_P = Pvalue) %>%
+  left_join(sys_pk_o %>% rename(Systolic_Coeff = Coeff, Systolic_P = Pvalue),
+            by = "Variable")
+
+metrics_row_o_pk <- tibble(
+  Variable        = "R² / Adj-R²",
+  Diastolic_Coeff = result11$ridge$metrics$R2,
+  Diastolic_P     = result11$ridge$metrics$AdjR2,
+  Systolic_Coeff  = result9$ridge$metrics$R2,
+  Systolic_P      = result9$ridge$metrics$AdjR2
+)
+
+bind_rows(tbl_old_pk, metrics_row_o_pk) %>%
+  gt() %>%
+  tab_header(
+    title = md("**Population >55 Years – Potassium**"),
+    subtitle = md("*Bootstrap Ridge Coefficients and P-values*")
+  ) %>%
+  tab_spanner(label = md("**Diastolic**"),
+              columns = c(Diastolic_Coeff, Diastolic_P)) %>%
+  tab_spanner(label = md("**Systolic**"),
+              columns = c(Systolic_Coeff, Systolic_P)) %>%
+  cols_label(
+    Variable = md("**Variable**"),
+    Diastolic_Coeff = "Coeff", Diastolic_P = "P-value",
+    Systolic_Coeff  = "Coeff", Systolic_P  = "P-value"
+  ) %>%
+  fmt_number(columns = c(Diastolic_Coeff, Systolic_Coeff), decimals = 4) %>%
+  fmt_number(columns = c(Diastolic_P, Systolic_P), decimals = 3) %>%
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(rows = Variable == "R² / Adj-R²"))
+```
+
+In adults aged **>55 years**, the associations between key nutrients and blood pressure appear weaker and less consistent compared to younger groups.
+
+* **Magnesium per kJ** remains statistically significant only for diastolic BP (p = 0.015), showing a *negative* relationship that suggests higher magnesium intake is linked to slightly lower diastolic pressure, though this effect diminishes for systolic BP (p = 0.16).
+* **Potassium per kJ** shows no statistically significant association for either outcome (p > 0.05), indicating minimal independent influence on BP within this older subgroup.
+* **Sodium per kJ** is also non-significant, reinforcing that the explanatory power of these nutrients on BP declines with age, possibly due to physiological or medication-related confounders.
+  Overall, magnesium continues to exhibit a modest inverse relationship with BP, but its strength and significance are notably reduced among older adults.
+
+#### Potassium-to-Sodium Ratio
+```{r}
+#| label: tbl-old-kna
+#| tbl-cap: "Bootstrap ridge regression summary for population >55 years – Potassium-to-Sodium Ratio"
+#| warning: false
+#| message: false
+
+# >55 mapping: systolic=result10, diastolic=result12
+dia_kna_o <- extract_coeffs(result12, terms_kna)
+sys_kna_o <- extract_coeffs(result10, terms_kna)
+
+tbl_old_kna <- dia_kna_o %>%
+  rename(Diastolic_Coeff = Coeff, Diastolic_P = Pvalue) %>%
+  left_join(sys_kna_o %>% rename(Systolic_Coeff = Coeff, Systolic_P = Pvalue),
+            by = "Variable")
+
+metrics_row_o_kna <- tibble(
+  Variable        = "R² / Adj-R²",
+  Diastolic_Coeff = result12$ridge$metrics$R2,
+  Diastolic_P     = result12$ridge$metrics$AdjR2,
+  Systolic_Coeff  = result10$ridge$metrics$R2,
+  Systolic_P      = result10$ridge$metrics$AdjR2
+)
+
+bind_rows(tbl_old_kna, metrics_row_o_kna) %>%
+  gt() %>%
+  tab_header(
+    title = md("**Population >55 Years – Potassium-to-Sodium Ratio**"),
+    subtitle = md("*Bootstrap Ridge Coefficients and P-values*")
+  ) %>%
+  tab_spanner(label = md("**Diastolic**"),
+              columns = c(Diastolic_Coeff, Diastolic_P)) %>%
+  tab_spanner(label = md("**Systolic**"),
+              columns = c(Systolic_Coeff, Systolic_P)) %>%
+  cols_label(
+    Variable = md("**Variable**"),
+    Diastolic_Coeff = "Coeff", Diastolic_P = "P-value",
+    Systolic_Coeff  = "Coeff", Systolic_P  = "P-value"
+  ) %>%
+  fmt_number(columns = c(Diastolic_Coeff, Systolic_Coeff), decimals = 4) %>%
+  fmt_number(columns = c(Diastolic_P, Systolic_P), decimals = 3) %>%
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(rows = Variable == "R² / Adj-R²"))
+```
+
+In the population aged **>55 years**, the associations between nutrient intake and blood pressure are generally weak, with limited statistical significance across all three nutrients of interest.
+
+* **Magnesium per kJ** remains the only nutrient showing a significant *inverse* association with diastolic BP (p = 0.011), suggesting that higher magnesium intake may modestly lower diastolic pressure, though its effect on systolic BP is non-significant (p = 0.16).
+* **Folate per kJ** shows no significant relationship with either BP outcome (p > 0.4), indicating minimal influence in this age group.
+* The **potassium:sodium ratio** is also non-significant for both diastolic (p = 0.86) and systolic (p = 0.69) BP, implying that in older adults, electrolyte balance exerts little independent predictive power once other covariates are controlled.
+  Overall, nutrient–BP associations appear attenuated in this older cohort, with only a weak residual inverse link between magnesium intake and diastolic pressure.
+  
+# 3. Conclusion 
+
+This analysis directly addressed the research question by estimating the independent associations of magnesium, potassium (and the potassium–to–sodium ratio), and folate with systolic and diastolic blood pressure using a **bootstrap ridge regression** framework, chosen for its strong out-of-sample stability and resistance to multicollinearity. Across the full sample and within predefined age groups (≤55 and >55 years), the results were consistent: **magnesium intake per kilojoule** demonstrated the most reliable *inverse* relationship with blood pressure—clearly evident for both systolic and diastolic outcomes in the full and younger subgroups, and persisting (albeit attenuated) for diastolic pressure in older adults.
+
+In contrast, **potassium (per kJ)** and the **potassium-to-sodium ratio** were generally not significant predictors after adjustment, while **folate density** showed, at best, a modest inverse association with systolic pressure among younger participants. Thus, this analytical approach offers a precise and internally consistent conclusion: among the nutrients examined, **magnesium density** displays the strongest and most consistent inverse association with blood pressure, while potassium and folate appear to play minimal or age-dependent roles.
+
+Methodologically, the model successfully generated **stable, generalizable estimates**, supported by cross-validated performance metrics and bootstrap-derived uncertainty intervals, while adhering to the prespecified causal adjustment set and effect modification by age. Nevertheless, several limitations warrant caution: (i) the **cross-sectional design** precludes causal inference; (ii) **measurement error** from dietary recall and daily intake variability likely attenuate true effects; (iii) **residual confounding** (e.g., medication use or unmeasured lifestyle variables) may persist; (iv) the model assumes **linear additivity**, and the small R² values suggest that nutrient intake explains only a modest proportion of blood pressure variation; and (v) using **nutrient density** (per kJ) highlights dietary quality but may obscure absolute intake effects. These factors suggest the reported effect sizes are conservative and should be validated in longitudinal or interventional research.
+
+In summary, the findings clearly address the primary and secondary research questions. Higher magnesium density is consistently linked to lower blood pressure—especially among younger adults—whereas potassium and folate demonstrate limited or age-specific associations. The results highlight **magnesium** as the most promising dietary factor for blood pressure control in this dataset and underscore the need for **prospective studies** and **improved exposure assessment** to refine nutrient-specific guidance.
