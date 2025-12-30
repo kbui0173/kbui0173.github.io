@@ -3,7 +3,7 @@ title: "Khanh N. (Alex) Bui"
 ---
 ## About Me
 
-[![Hi there, this is me!](../assets/Khanh.jpg){.rounded-circle width="300px" style="float: right; margin-left: 20px;"}](../assets/Khanh.jpg)
+![Hi there, this is me!](../assets/Khanh.jpg){.rounded-circle width="300px"}
 
 
 Hello, my name is **Khanh N. Bui** and I'm also known as **Alex**.
