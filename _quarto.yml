@@ -3,6 +3,13 @@ project:
   resources:
     - resume/**
 
+jupyter:
+  kernelspec:
+    name: python3
+    language: python
+    display_name: Python 3
+  python: /opt/anaconda3/bin/python
+
 website:
   title: "Khanh N Bui"
   navbar:
