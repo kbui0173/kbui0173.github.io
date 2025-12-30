@@ -1,9 +1,9 @@
 ---
-title: ""
+title: "Bayesian Implementation: MCMC vs Variational Bayes for ASX200"
 description: "Practical implementation and computational comparison of Random Walk Metropolis and Variational Bayes for log-STD-GARCH(1,1) volatility models, with JIT optimisation and parallel Monte Carlo forecasting"
 date: "2025-11-12"
 categories: [Bayesian, Time-Series]
-image: fig-comparison.pngBayesian Implementation: MCMC vs Variational Bayes for ASX200
+image: fig-comparison.png
 jupyter: python3
 format:
   html:
