@@ -67,3 +67,11 @@
   border-color: #545b62 !important;
   color: white !important;
 }
+
+/* Ensure all images and figures fit within page width */
+img,
+.cell-output-display img,
+.cell-output-display figure {
+  max-width: 100%;
+  height: auto;
+}
