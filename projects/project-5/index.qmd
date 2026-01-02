@@ -1,6 +1,6 @@
 ---
-title: "2-Regime Portfolio Strategy with Ledoit-Wolf Shrinkage"
-description: "A regime-aware portfolio strategy using volatility hysteresis and trend detection, optimized with Numba JIT and shrinkage covariance estimation"
+title: "2-Regime Portfolio Strategy Comparison"
+description: "Comparing three regime-switching portfolio strategies using volatility hysteresis and trend detection, optimized with Numba JIT and Ledoit-Wolf shrinkage"
 author: "Khanh Nguyen Bui"
 date: "2025-12-31"
 categories: [Python, Quantitative Finance]
@@ -43,10 +43,22 @@ np.random.seed(42)
 
 # Overview
 
-In this project, I implement a daily, regime-aware portfolio strategy with **2 regimes**:
+In this project, I implement and compare **three regime-switching portfolio strategies** that differ only in their optimization objectives:
 
-- **Trend regime** → maximize Sharpe ratio (risk-adjusted)
-- **Defensive regime** → minimize CVaR (Expected Shortfall) at 95% (risk-off)
+| Strategy | Trend Regime (Risk-On) | Defensive Regime (Risk-Off) |
+|----------|------------------------|----------------------------|
+| **Strategy 1** | Maximize Return | Minimize CVaR (95%) |
+| **Strategy 2** | Maximize Sharpe | Minimize CVaR (95%) |
+| **Strategy 3** | Maximize Return | Maximize Sharpe |
+
+All strategies share the same:
+
+- **Regime detection**: Volatility hysteresis + trend t-statistic
+- **Covariance estimation**: Ledoit-Wolf shrinkage
+- **Rebalancing**: Weekly (every 5 trading days)
+- **Turnover filter**: 5% minimum change to trigger rebalance
+
+**Key question**: Does the choice of objective function meaningfully impact risk-adjusted returns?
 
 **Key optimizations:**
 
@@ -68,9 +80,9 @@ Trading clock:
 | Trend Window ($W_{tr}$) | 60 days | Window for slope regression |
 | Trend Threshold ($\tau$) | 2.0 | T-statistic required to trigger Trend regime |
 | Optimization Lookback | 252 days | History used for covariance/mean estimation |
-| Max Weight | 20% | Maximum allocation to any single ticker |
+| Max Weight | 100% | Maximum allocation to any single ticker |
 | Turnover Buffer ($\theta$) | 5% | Minimum weight change to trigger rebalance |
-| CVaR Confidence | 95% | Tail risk threshold for Defensive regime |
+| CVaR Confidence | 95% | Tail risk threshold (Strategies 1 & 2) |
 | Covariance Estimator | Ledoit-Wolf | Shrinkage estimator for numerical stability |
 
 # Data
@@ -563,9 +575,10 @@ The strategy employs a **rolling window optimization** approach:
 1. **Regime Identification**: Observe signal $S_{t-1}$ (naive prediction)
 2. **Data Subsetting**: Extract returns for window $[t-L, t-1]$ where $L=252$
 3. **Covariance Estimation**: Apply Ledoit-Wolf shrinkage
-4. **Objective Selection** (2 regimes):
-   - **Trend (1)**: Maximize Sharpe ratio
-   - **Defensive (0)**: Minimize CVaR at 95%
+4. **Objective Selection** (varies by strategy):
+   - **Strategy 1**: Trend → Max Return, Defensive → Min CVaR
+   - **Strategy 2**: Trend → Max Sharpe, Defensive → Min CVaR
+   - **Strategy 3**: Trend → Max Return, Defensive → Max Sharpe
 5. **Turnover Filtering**: Skip rebalancing if turnover $< 5\%$
 
 ```{python}
@@ -598,7 +611,7 @@ def optimize_portfolio_lw(returns, objective='sharpe', max_weight=1.0, alpha_cva
     returns : np.ndarray
         Returns matrix (T x N)
     objective : str
-        'sharpe' (maximize) or 'cvar' (minimize)
+        'return' (maximize), 'sharpe' (maximize), or 'cvar' (minimize)
     max_weight : float
         Maximum weight per asset
     alpha_cvar : float
@@ -630,12 +643,15 @@ def optimize_portfolio_lw(returns, objective='sharpe', max_weight=1.0, alpha_cva
     # Bounds: long-only with max weight
     bounds = [(0, max_weight) for _ in range(n_assets)]
     
-    # Select objective (2 regimes only)
-    if objective == 'sharpe':
-        # Trend regime: maximize Sharpe ratio
+    # Select objective
+    if objective == 'return':
+        # Maximize expected return
+        obj_func = lambda w: -portfolio_return(w, mean_returns)
+    elif objective == 'sharpe':
+        # Maximize Sharpe ratio
         obj_func = lambda w: -portfolio_sharpe(w, mean_returns, cov_matrix)
     elif objective == 'cvar':
-        # Defensive regime: minimize CVaR
+        # Minimize CVaR (tail risk)
         obj_func = lambda w: portfolio_cvar_scipy(w, returns, alpha_cvar)
     else:
         raise ValueError(f"Unknown objective: {objective}")
@@ -658,7 +674,7 @@ def optimize_portfolio_lw(returns, objective='sharpe', max_weight=1.0, alpha_cva
 
 ```{python}
 #| label: backtest
-#| code-summary: "Run backtest with 2 regimes and Ledoit-Wolf"
+#| code-summary: "Run backtest for all 3 strategies"
 
 # Load data
 prices = pd.read_csv("prices.csv")
@@ -669,7 +685,7 @@ sig['date'] = pd.to_datetime(sig['date'])
 
 # Parameters
 lookback = 252
-w_max = 0.20
+w_max = 0.2  # Allow full concentration
 theta = 0.05  # Turnover filter
 fee = 0.0010  # 10 bps
 
@@ -703,104 +719,136 @@ bt = bt[bt.index >= '2005-01-01']
 
 # Initialize storage
 n = len(bt)
-weights = pd.DataFrame(index=bt.index, columns=asset_cols, dtype=float)
-shrinkage_history = []
 
 print(f"Backtest period: {bt.index[0]} to {bt.index[-1]}")
 print(f"Number of trading days: {n}")
 
+# Define the 3 strategies
+strategies = {
+    'Strategy 1': {'trend': 'return', 'defensive': 'cvar'},   # Max Return / Min CVaR
+    'Strategy 2': {'trend': 'sharpe', 'defensive': 'cvar'},   # Max Sharpe / Min CVaR
+    'Strategy 3': {'trend': 'return', 'defensive': 'sharpe'}  # Max Return / Max Sharpe
+}
+
+# Storage for all strategies
+all_weights = {}
+all_shrinkage = {}
+
 # Rebalance every 5 days
 rebalance_freq = 5
-prev_weights = None
 
-for i in range(lookback + 1, n):
-    idx = bt.index[i]
+for strat_name, objectives in strategies.items():
+    print(f"\nRunning {strat_name}: Trend={objectives['trend']}, Defensive={objectives['defensive']}")
     
-    if i % rebalance_freq != 0 and prev_weights is not None:
-        weights.iloc[i] = prev_weights
-        continue
+    weights = pd.DataFrame(index=bt.index, columns=asset_cols, dtype=float)
+    shrinkage_history = []
+    prev_weights = None
     
-    train_returns = bt[asset_cols].iloc[i - lookback:i].values
-    regime = int(bt['signal_pred'].iloc[i])
-    
-    # 2-REGIME OBJECTIVE:
-    # Regime 1 (Trend): maximize return
-    # Regime 0 (Defensive): minimize CVaR
-    if regime == 1:
-        objective = 'return'
-    else:
-        objective = 'cvar'
-    
-    try:
-        new_w, shrinkage = optimize_portfolio_lw(train_returns, objective=objective, max_weight=w_max)
-        shrinkage_history.append(shrinkage)
-    except Exception:
-        new_w = None
-    
-    if new_w is None:
-        if prev_weights is not None:
-            weights.iloc[i] = prev_weights
-        continue
-    
-    if prev_weights is not None:
-        to_i = np.sum(np.abs(new_w - prev_weights))
+    for i in range(lookback + 1, n):
+        idx = bt.index[i]
         
-        if to_i < theta:
+        if i % rebalance_freq != 0 and prev_weights is not None:
             weights.iloc[i] = prev_weights
+            continue
+        
+        train_returns = bt[asset_cols].iloc[i - lookback:i].values
+        regime = int(bt['signal_pred'].iloc[i])
+        
+        # Select objective based on regime and strategy
+        if regime == 1:  # Trend regime
+            objective = objectives['trend']
+        else:  # Defensive regime
+            objective = objectives['defensive']
+        
+        try:
+            new_w, shrinkage = optimize_portfolio_lw(train_returns, objective=objective, max_weight=w_max)
+            shrinkage_history.append(shrinkage)
+        except Exception:
+            new_w = None
+        
+        if new_w is None:
+            if prev_weights is not None:
+                weights.iloc[i] = prev_weights
+            continue
+        
+        if prev_weights is not None:
+            to_i = np.sum(np.abs(new_w - prev_weights))
+            
+            if to_i < theta:
+                weights.iloc[i] = prev_weights
+            else:
+                weights.iloc[i] = new_w
+                prev_weights = new_w
         else:
             weights.iloc[i] = new_w
             prev_weights = new_w
-    else:
-        weights.iloc[i] = new_w
-        prev_weights = new_w
+    
+    all_weights[strat_name] = weights.dropna(how='all')
+    all_shrinkage[strat_name] = shrinkage_history
+    
+    print(f"  Weights computed for {len(all_weights[strat_name])} days")
+    if shrinkage_history:
+        print(f"  Average shrinkage: {np.mean(shrinkage_history):.4f}")
 
-weights_df = weights.dropna(how='all')
-weights_df.to_csv("weights.csv")
-
-print(f"Weights computed for {len(weights_df)} days")
-if shrinkage_history:
-    print(f"Average Ledoit-Wolf shrinkage coefficient: {np.mean(shrinkage_history):.4f}")
+# Save Strategy 1 weights for compatibility
+all_weights['Strategy 1'].to_csv("weights.csv")
 ```
 
 ```{python}
 #| label: compute-returns
-#| code-summary: "Compute strategy returns with transaction costs"
+#| code-summary: "Compute returns for all 3 strategies"
 
-# Forward fill weights
-w_full = weights.ffill()
-w_full = w_full.dropna(how='all')
+def compute_strategy_returns(weights_df, bt_data, asset_cols, theta, fee):
+    """Compute strategy returns with transaction costs."""
+    w_full = weights_df.ffill()
+    w_full = w_full.dropna(how='all')
+    
+    ret_used = bt_data[asset_cols].loc[w_full.index]
+    
+    # Compute costs
+    cost = np.zeros(len(w_full))
+    for i in range(1, len(w_full)):
+        to_i = np.sum(np.abs(w_full.iloc[i].values - w_full.iloc[i - 1].values))
+        if to_i >= theta:
+            cost[i] = fee * to_i
+    
+    # Compute strategy returns
+    strategy_ret = pd.Series(index=w_full.index, dtype=float)
+    
+    for i in range(len(ret_used) - 1):
+        gross = np.sum(w_full.iloc[i].values * ret_used.iloc[i + 1].values)
+        strategy_ret.iloc[i + 1] = (1 - cost[i]) * (1 + gross) - 1
+    
+    return strategy_ret.dropna()
 
-# Align returns
-ret_used = bt[asset_cols].loc[w_full.index]
+# Compute returns for all strategies
+strategy_returns = {}
+for strat_name, weights_df in all_weights.items():
+    strategy_returns[strat_name] = compute_strategy_returns(weights_df, bt, asset_cols, theta, fee)
+    print(f"{strat_name}: {len(strategy_returns[strat_name])} days of returns")
 
-# Compute costs
-cost = np.zeros(len(w_full))
-for i in range(1, len(w_full)):
-    to_i = np.sum(np.abs(w_full.iloc[i].values - w_full.iloc[i - 1].values))
-    if to_i >= theta:
-        cost[i] = fee * to_i
-
-# Compute strategy returns
-strategy_ret = pd.Series(index=w_full.index, dtype=float)
-
-for i in range(len(ret_used) - 1):
-    gross = np.sum(w_full.iloc[i].values * ret_used.iloc[i + 1].values)
-    strategy_ret.iloc[i + 1] = (1 - cost[i]) * (1 + gross) - 1
+# Align all returns to common index
+common_idx = strategy_returns['Strategy 1'].index
+for strat_name in strategy_returns:
+    common_idx = common_idx.intersection(strategy_returns[strat_name].index)
 
 # Benchmarks
+ret_used = bt[asset_cols].loc[common_idx]
 spy_bh = ret_used['SPY']
 bench_6040 = 0.6 * ret_used['SPY'] + 0.4 * ret_used['TLT']
 
-# Combine for comparison
+# Combine all for comparison
 comparison = pd.DataFrame({
-    'Strategy': strategy_ret,
+    'Strategy 1': strategy_returns['Strategy 1'].loc[common_idx],
+    'Strategy 2': strategy_returns['Strategy 2'].loc[common_idx],
+    'Strategy 3': strategy_returns['Strategy 3'].loc[common_idx],
     'SPY_BuyHold': spy_bh,
     'Bench_60_40': bench_6040
 })
 comparison = comparison.dropna()
 
 comparison.to_csv("returns_comparison.csv")
-print(f"Strategy returns computed for {len(comparison)} days")
+print(f"\nFinal comparison: {len(comparison)} days")
 ```
 
 # Backtest Results
@@ -877,25 +925,90 @@ def calculate_metrics(returns, benchmark_returns=None):
 rets = pd.read_csv("returns_comparison.csv", index_col=0, parse_dates=True)
 
 # Calculate metrics for each series
-metrics_strategy = calculate_metrics(rets['Strategy'], rets['SPY_BuyHold'])
+metrics_s1 = calculate_metrics(rets['Strategy 1'], rets['SPY_BuyHold'])
+metrics_s2 = calculate_metrics(rets['Strategy 2'], rets['SPY_BuyHold'])
+metrics_s3 = calculate_metrics(rets['Strategy 3'], rets['SPY_BuyHold'])
 metrics_spy = calculate_metrics(rets['SPY_BuyHold'], rets['SPY_BuyHold'])
 metrics_6040 = calculate_metrics(rets['Bench_60_40'], rets['SPY_BuyHold'])
 
 # Create comparison table
 metrics_df = pd.DataFrame({
-    'Strategy': metrics_strategy,
-    'SPY Buy&Hold': metrics_spy,
+    'S1 (Ret/CVaR)': metrics_s1,
+    'S2 (Sharpe/CVaR)': metrics_s2,
+    'S3 (Ret/Sharpe)': metrics_s3,
+    'SPY B&H': metrics_spy,
     '60/40': metrics_6040
 }).T
 
 metrics_df
 ```
 
+### Key Observations
+
+```{python}
+#| label: metrics-analysis
+#| code-summary: "Analyze and compare strategy metrics"
+
+# Get raw metrics for analysis
+rets = pd.read_csv("returns_comparison.csv", index_col=0, parse_dates=True)
+
+def get_raw_metrics(returns):
+    """Get raw numeric metrics."""
+    returns = returns.dropna()
+    n_days = len(returns)
+    cum_returns = (1 + returns).cumprod()
+    total_return = cum_returns.iloc[-1] - 1
+    years = n_days / 252
+    cagr = (cum_returns.iloc[-1]) ** (1 / years) - 1
+    ann_vol = returns.std() * np.sqrt(252)
+    sharpe = (returns.mean() * 252) / ann_vol if ann_vol > 0 else np.nan
+    downside_returns = returns[returns < 0]
+    downside_std = downside_returns.std() * np.sqrt(252)
+    sortino = (returns.mean() * 252) / downside_std if downside_std > 0 else np.nan
+    peak = cum_returns.cummax()
+    drawdown = (cum_returns - peak) / peak
+    max_dd = drawdown.min()
+    calmar = cagr / abs(max_dd) if max_dd < 0 else np.nan
+    return {
+        'total_return': total_return,
+        'cagr': cagr,
+        'ann_vol': ann_vol,
+        'sharpe': sharpe,
+        'sortino': sortino,
+        'max_dd': max_dd,
+        'calmar': calmar
+    }
+
+m_s1 = get_raw_metrics(rets['Strategy 1'])
+m_s2 = get_raw_metrics(rets['Strategy 2'])
+m_s3 = get_raw_metrics(rets['Strategy 3'])
+m_spy = get_raw_metrics(rets['SPY_BuyHold'])
+m_6040 = get_raw_metrics(rets['Bench_60_40'])
+
+from IPython.display import Markdown
+
+analysis = f"""
+**Risk-Adjusted Performance**: Strategy 2 (Sharpe/CVaR) achieves the highest Sharpe ratio ({m_s2['sharpe']:.2f}) among all strategies, outperforming even SPY Buy & Hold ({m_spy['sharpe']:.2f}) and the 60/40 benchmark ({m_6040['sharpe']:.2f}). This demonstrates that using Sharpe optimization in the Trend regime combined with CVaR protection in the Defensive regime produces superior risk-adjusted returns.
+
+**Volatility Management**: Strategy 2 exhibits the lowest annualized volatility ({m_s2['ann_vol']:.1%}) among the three strategies—roughly {(1 - m_s2['ann_vol']/m_spy['ann_vol']):.0%} lower than SPY Buy & Hold ({m_spy['ann_vol']:.1%}). In contrast, Strategies 1 and 3 that use Max Return in the Trend regime show higher volatility ({m_s1['ann_vol']:.1%} and {m_s3['ann_vol']:.1%} respectively).
+
+**Drawdown Protection**: All three strategies significantly reduce maximum drawdown compared to SPY ({m_spy['max_dd']:.1%}). Strategy 2 achieves the shallowest drawdown ({m_s2['max_dd']:.1%}), followed by Strategy 1 ({m_s1['max_dd']:.1%}) and Strategy 3 ({m_s3['max_dd']:.1%}). The CVaR-based defensive positioning (S1, S2) provides better tail-risk protection than Sharpe-based defense (S3).
+
+**Return vs. Risk Trade-off**: While SPY Buy & Hold delivers the highest total return ({m_spy['total_return']:.1%}), it comes with substantially higher risk. Strategy 2's Calmar ratio ({m_s2['calmar']:.2f}) is more than double SPY's ({m_spy['calmar']:.2f}), indicating better return per unit of drawdown risk.
+
+**Sortino Ratio**: Strategy 2 leads with a Sortino ratio of {m_s2['sortino']:.2f}, compared to {m_s1['sortino']:.2f} (S1) and {m_s3['sortino']:.2f} (S3). This confirms that S2's downside risk management is superior.
+
+**Key Takeaway**: The choice of objective function matters significantly. Using **Max Sharpe in Trend + Min CVaR in Defensive** (Strategy 2) produces the best risk-adjusted performance, while **Max Return in Trend** (S1, S3) increases volatility without proportional return improvement.
+"""
+
+Markdown(analysis)
+```
+
 ## Cumulative Performance
 
 ```{python}
 #| label: fig-cumulative
-#| code-summary: "Plot cumulative performance"
+#| code-summary: "Plot cumulative performance for all strategies"
 
 rets = pd.read_csv("returns_comparison.csv", index_col=0, parse_dates=True)
 sig = pd.read_csv("signal.csv")
@@ -905,9 +1018,11 @@ sig['date'] = pd.to_datetime(sig['date'])
 df = rets.copy()
 df = df.merge(sig.set_index('date'), left_index=True, right_index=True, how='left')
 
-# Calculate cumulative returns
+# Calculate cumulative returns for all strategies
 df_cum = pd.DataFrame({
-    'Strategy': (1 + df['Strategy']).cumprod(),
+    'Strategy 1 (Ret/CVaR)': (1 + df['Strategy 1']).cumprod(),
+    'Strategy 2 (Sharpe/CVaR)': (1 + df['Strategy 2']).cumprod(),
+    'Strategy 3 (Ret/Sharpe)': (1 + df['Strategy 3']).cumprod(),
     'SPY Buy&Hold': (1 + df['SPY_BuyHold']).cumprod(),
     '60/40 Benchmark': (1 + df['Bench_60_40']).cumprod()
 })
@@ -935,19 +1050,25 @@ for _, row in regime_blocks.iterrows():
             layer="below", line_width=0
         )
 
-# Add cumulative return lines
-fig.add_trace(go.Scatter(x=df_cum.index, y=df_cum['Strategy'], 
-                         mode='lines', name='Strategy',
+# Add cumulative return lines for all 3 strategies
+fig.add_trace(go.Scatter(x=df_cum.index, y=df_cum['Strategy 1 (Ret/CVaR)'], 
+                         mode='lines', name='S1: Ret/CVaR',
                          line=dict(color='#2E86C1', width=2)))
+fig.add_trace(go.Scatter(x=df_cum.index, y=df_cum['Strategy 2 (Sharpe/CVaR)'], 
+                         mode='lines', name='S2: Sharpe/CVaR',
+                         line=dict(color='#E74C3C', width=2)))
+fig.add_trace(go.Scatter(x=df_cum.index, y=df_cum['Strategy 3 (Ret/Sharpe)'], 
+                         mode='lines', name='S3: Ret/Sharpe',
+                         line=dict(color='#27AE60', width=2)))
 fig.add_trace(go.Scatter(x=df_cum.index, y=df_cum['SPY Buy&Hold'], 
                          mode='lines', name='SPY Buy&Hold',
-                         line=dict(color='grey', width=1.5)))
+                         line=dict(color='grey', width=1.5, dash='dash')))
 fig.add_trace(go.Scatter(x=df_cum.index, y=df_cum['60/40 Benchmark'], 
                          mode='lines', name='60/40 Benchmark',
-                         line=dict(color='black', width=1.5)))
+                         line=dict(color='black', width=1.5, dash='dot')))
 
 fig.update_layout(
-    title='Cumulative Growth of $1: Strategy vs Benchmarks',
+    title='Cumulative Growth of $1: All Strategies vs Benchmarks',
     xaxis_title='Date',
     yaxis_title='Portfolio Value ($)',
     height=500,
@@ -961,7 +1082,7 @@ fig.show()
 
 ```{python}
 #| label: fig-drawdown
-#| code-summary: "Plot drawdown comparison"
+#| code-summary: "Plot drawdown comparison for all strategies"
 
 def calculate_drawdown(returns):
     """Calculate drawdown series."""
@@ -972,29 +1093,37 @@ def calculate_drawdown(returns):
 
 rets = pd.read_csv("returns_comparison.csv", index_col=0, parse_dates=True)
 
-dd_strategy = calculate_drawdown(rets['Strategy'])
+dd_s1 = calculate_drawdown(rets['Strategy 1'])
+dd_s2 = calculate_drawdown(rets['Strategy 2'])
+dd_s3 = calculate_drawdown(rets['Strategy 3'])
 dd_spy = calculate_drawdown(rets['SPY_BuyHold'])
 dd_6040 = calculate_drawdown(rets['Bench_60_40'])
 
 fig = go.Figure()
 
-fig.add_trace(go.Scatter(x=dd_strategy.index, y=dd_strategy,
-                         mode='lines', name='Strategy',
+fig.add_trace(go.Scatter(x=dd_s1.index, y=dd_s1,
+                         mode='lines', name='S1: Ret/CVaR',
                          line=dict(color='#2E86C1', width=1.5)))
+fig.add_trace(go.Scatter(x=dd_s2.index, y=dd_s2,
+                         mode='lines', name='S2: Sharpe/CVaR',
+                         line=dict(color='#E74C3C', width=1.5)))
+fig.add_trace(go.Scatter(x=dd_s3.index, y=dd_s3,
+                         mode='lines', name='S3: Ret/Sharpe',
+                         line=dict(color='#27AE60', width=1.5)))
 fig.add_trace(go.Scatter(x=dd_spy.index, y=dd_spy,
                          mode='lines', name='SPY Buy&Hold',
-                         line=dict(color='grey', width=1.5)))
+                         line=dict(color='grey', width=1.5, dash='dash')))
 fig.add_trace(go.Scatter(x=dd_6040.index, y=dd_6040,
                          mode='lines', name='60/40 Benchmark',
-                         line=dict(color='black', width=1.5)))
+                         line=dict(color='black', width=1.5, dash='dot')))
 
 fig.update_layout(
-    title='Underwater Plot: Strategy vs. Benchmarks',
+    title='Underwater Plot: All Strategies vs. Benchmarks',
     xaxis_title='Date',
     yaxis_title='Drawdown',
     yaxis_tickformat='.0%',
     height=400,
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    legend=dict(orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5)
 )
 
 fig.show()
@@ -1004,7 +1133,7 @@ fig.show()
 
 ```{python}
 #| label: regime-performance
-#| code-summary: "Analyze performance by regime"
+#| code-summary: "Analyze performance by regime for all strategies"
 
 rets = pd.read_csv("returns_comparison.csv", index_col=0, parse_dates=True)
 sig = pd.read_csv("signal.csv")
@@ -1013,37 +1142,42 @@ sig['date'] = pd.to_datetime(sig['date'])
 df = rets.merge(sig.set_index('date'), left_index=True, right_index=True, how='left')
 
 # 2-regime names
-regime_names = {0: 'Defensive (High-Vol / No Trend)', 1: 'Trend (Risk-On)'}
+regime_names = {0: 'Defensive', 1: 'Trend'}
+strategy_cols = ['Strategy 1', 'Strategy 2', 'Strategy 3']
+strategy_labels = ['S1 (Ret/CVaR)', 'S2 (Sharpe/CVaR)', 'S3 (Ret/Sharpe)']
 
 regime_stats = []
 for regime in [0, 1]:
     mask = df['signal'] == regime
     if mask.sum() > 0:
-        returns = df.loc[mask, 'Strategy']
+        n_days = mask.sum()
         
-        n_days = len(returns)
-        ann_ret = returns.mean() * 252
-        ann_vol = returns.std() * np.sqrt(252)
-        sharpe = ann_ret / ann_vol if ann_vol > 0 else np.nan
-        hit_rate = (returns > 0).mean()
-        
-        regime_stats.append({
-            'Regime': regime_names[regime],
-            'Days': n_days,
-            'Ann. Return': f"{ann_ret:.1%}",
-            'Ann. Vol': f"{ann_vol:.1%}",
-            'Sharpe': f"{sharpe:.2f}",
-            'Hit Rate': f"{hit_rate:.1%}"
-        })
+        for strat_col, strat_label in zip(strategy_cols, strategy_labels):
+            returns = df.loc[mask, strat_col]
+            
+            ann_ret = returns.mean() * 252
+            ann_vol = returns.std() * np.sqrt(252)
+            sharpe = ann_ret / ann_vol if ann_vol > 0 else np.nan
+            hit_rate = (returns > 0).mean()
+            
+            regime_stats.append({
+                'Regime': regime_names[regime],
+                'Strategy': strat_label,
+                'Days': n_days,
+                'Ann. Return': f"{ann_ret:.1%}",
+                'Ann. Vol': f"{ann_vol:.1%}",
+                'Sharpe': f"{sharpe:.2f}",
+                'Hit Rate': f"{hit_rate:.1%}"
+            })
 
-pd.DataFrame(regime_stats)
+pd.DataFrame(regime_stats).pivot(index='Strategy', columns='Regime', values=['Ann. Return', 'Sharpe'])
 ```
 
 # Performance Dashboard
 
 ```{python}
 #| label: fig-dashboard
-#| code-summary: "Performance dashboard"
+#| code-summary: "Performance dashboard for Strategy 2 (Best Strategy)"
 #| fig-height: 12
 
 rets = pd.read_csv("returns_comparison.csv", index_col=0, parse_dates=True)
@@ -1052,14 +1186,18 @@ sig['date'] = pd.to_datetime(sig['date'])
 
 df = rets.merge(sig.set_index('date'), left_index=True, right_index=True, how='left')
 
+# Use Strategy 2 for dashboard (best risk-adjusted performance)
+strat_col = 'Strategy 2'
+strat_label = 'Strategy 2 (Sharpe/CVaR)'
+
 # Monthly returns
 df['Year'] = df.index.year
 df['Month'] = df.index.month
-monthly = df.groupby(['Year', 'Month'])['Strategy'].apply(lambda x: (1 + x).prod() - 1).reset_index()
-monthly_pivot = monthly.pivot(index='Year', columns='Month', values='Strategy')
+monthly = df.groupby(['Year', 'Month'])[strat_col].apply(lambda x: (1 + x).prod() - 1).reset_index()
+monthly_pivot = monthly.pivot(index='Year', columns='Month', values=strat_col)
 
 # Yearly returns
-yearly = df.groupby('Year')['Strategy'].apply(lambda x: (1 + x).prod() - 1).reset_index()
+yearly = df.groupby('Year')[strat_col].apply(lambda x: (1 + x).prod() - 1).reset_index()
 
 # Create dashboard
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -1071,7 +1209,7 @@ ax1.set_xticks(range(12))
 ax1.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
 ax1.set_yticks(range(len(monthly_pivot.index)))
 ax1.set_yticklabels(monthly_pivot.index)
-ax1.set_title('Monthly Returns Heatmap')
+ax1.set_title(f'{strat_label} Monthly Returns Heatmap')
 plt.colorbar(im, ax=ax1, format='%.0f%%')
 
 # Add text annotations
@@ -1083,32 +1221,32 @@ for i in range(len(monthly_pivot.index)):
 
 # 2. Yearly returns bar
 ax2 = axes[0, 1]
-colors = ['green' if x >= 0 else 'red' for x in yearly['Strategy']]
-ax2.barh(yearly['Year'], yearly['Strategy'], color=colors)
+colors = ['green' if x >= 0 else 'red' for x in yearly[strat_col]]
+ax2.barh(yearly['Year'], yearly[strat_col], color=colors)
 ax2.set_xlabel('Return')
-ax2.set_title('Yearly Returns')
+ax2.set_title(f'{strat_label} Yearly Returns')
 ax2.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.0%}'))
-for i, (year, ret) in enumerate(zip(yearly['Year'], yearly['Strategy'])):
+for i, (year, ret) in enumerate(zip(yearly['Year'], yearly[strat_col])):
     ax2.text(ret + 0.01 if ret >= 0 else ret - 0.01, year, f'{ret:.1%}', 
              va='center', ha='left' if ret >= 0 else 'right', fontsize=8)
 
 # 3. Return distribution
 ax3 = axes[1, 0]
-ax3.hist(df['Strategy'].dropna(), bins=50, color='steelblue', edgecolor='white', alpha=0.7)
-ax3.axvline(df['Strategy'].mean(), color='red', linestyle='--', linewidth=2, label=f'Mean: {df["Strategy"].mean():.4f}')
+ax3.hist(df[strat_col].dropna(), bins=50, color='steelblue', edgecolor='white', alpha=0.7)
+ax3.axvline(df[strat_col].mean(), color='red', linestyle='--', linewidth=2, label=f'Mean: {df[strat_col].mean():.4f}')
 ax3.set_xlabel('Daily Return')
 ax3.set_ylabel('Frequency')
-ax3.set_title('Distribution of Daily Returns')
+ax3.set_title(f'{strat_label} Distribution of Daily Returns')
 ax3.legend()
 
 # 4. Rolling 6-month stats
 ax4 = axes[1, 1]
-rolling_ret = df['Strategy'].rolling(126).apply(lambda x: (1 + x).prod() ** (252/126) - 1)
-rolling_vol = df['Strategy'].rolling(126).std() * np.sqrt(252)
+rolling_ret = df[strat_col].rolling(126).apply(lambda x: (1 + x).prod() ** (252/126) - 1)
+rolling_vol = df[strat_col].rolling(126).std() * np.sqrt(252)
 ax4.plot(df.index, rolling_ret, label='Rolling Ann. Return', color='blue')
 ax4.plot(df.index, rolling_vol, label='Rolling Ann. Vol', color='orange')
 ax4.set_xlabel('Date')
-ax4.set_title('Rolling 6-Month Statistics (Annualized)')
+ax4.set_title(f'{strat_label} Rolling 6-Month Statistics (Annualized)')
 ax4.legend()
 ax4.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.0%}'))
 
@@ -1118,23 +1256,33 @@ plt.show()
 
 # Performance Analysis
 
-The backtest results demonstrate the effectiveness of the 3-regime strategy in adapting to market conditions. The key findings are:
+## Strategy Comparison Summary
 
-## Key Performance Drivers
+The three strategies differ only in their optimization objectives while sharing the same regime detection mechanism:
 
-### 1. Asymmetric Risk-Return Profile
+| Strategy | Trend (Risk-On) | Defensive (Risk-Off) | Philosophy |
+|----------|-----------------|---------------------|------------|
+| **Strategy 1** | Max Return | Min CVaR | Aggressive in trends, tail-risk protection in defense |
+| **Strategy 2** | Max Sharpe | Min CVaR | Risk-adjusted in trends, tail-risk protection in defense |
+| **Strategy 3** | Max Return | Max Sharpe | Aggressive in trends, risk-adjusted in defense |
 
-The strategy achieves strong risk-adjusted returns by dynamically shifting between offensive (Trend regime) and defensive (High-vol regime) postures. The turnover filter ensures we don't trade excessively on noise.
+## Key Insights
 
-### 2. Regime-Aware Optimization
+### 1. Trend Regime Objectives
 
-- **Trend regime**: Maximizing Sharpe ratio balances return and risk during sustained uptrends
-- **Low-vol regime**: Sharpe optimization provides balanced exposure
-- **High-vol regime**: CVaR minimization protects capital during market stress
+- **Max Return** (S1, S3): Concentrates in highest-expected-return assets—can lead to higher gains but also higher volatility
+- **Max Sharpe** (S2): Balances return against volatility—more diversified but may underperform in strong momentum environments
 
-### 3. Sector Diversification
+### 2. Defensive Regime Objectives
 
-The sector ETF universe allows efficient rotation between cyclical and defensive sectors based on regime detection, while TLT and GLD provide flight-to-safety hedging during high-volatility periods.
+- **Min CVaR** (S1, S2): Explicitly minimizes tail risk—provides protection during market stress but may sacrifice upside
+- **Max Sharpe** (S3): Maintains risk-adjusted exposure—better for sideways markets but less tail protection
+
+### 3. Expected Behavior
+
+- **Strategy 1** should excel in crisis protection (CVaR in defense) while capturing momentum (return in trend)
+- **Strategy 2** should have the smoothest equity curve due to Sharpe optimization in trend regime
+- **Strategy 3** should perform best in prolonged bull markets but may suffer in sharp drawdowns
 
 ## Critical Evaluation
 
@@ -1175,14 +1323,13 @@ The shrinkage coefficient $\alpha$ balances between:
 
 For $T=252$ observations and $N=12$ assets, typical shrinkage is $\alpha \approx 0.1-0.3$, providing a well-conditioned matrix while preserving most correlation structure.
 
-## 2-Regime Simplification
+## 2-Regime Framework
 
-The original 3-regime model was simplified to 2 regimes:
+The strategy uses a 2-regime framework derived from volatility and trend signals:
 
-| Original | New | Objective |
-|----------|-----|--------|
-| Trend (1) | Trend (1) | Max Sharpe |
-| Low-Vol (0) | Defensive (0) | Min CVaR |
-| High-Vol (2) | Defensive (0) | Min CVaR |
+| Signal State | Regime | Description |
+|--------------|--------|-------------|
+| High-Vol OR No Trend | Defensive (0) | Risk-off positioning |
+| Low-Vol AND Uptrend | Trend (1) | Risk-on positioning |
 
-This simplification reduces model complexity and improves signal stability—the low-vol regime often transitions frequently, causing unnecessary turnover.
+Each of the three strategies applies different optimization objectives within this framework, allowing us to isolate the impact of objective function choice on portfolio performance.
