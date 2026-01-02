@@ -1,6 +1,6 @@
 ---
 title: "2-Regime Portfolio Strategy Comparison"
-description: "Comparing three regime-switching portfolio strategies using volatility hysteresis and trend detection, optimized with Numba JIT and Ledoit-Wolf shrinkage"
+description: "Comparing two regime-switching portfolio strategies using volatility hysteresis and trend detection, optimized with Numba JIT and Ledoit-Wolf shrinkage"
 author: "Khanh Nguyen Bui"
 date: "2025-12-31"
 categories: [Python, Quantitative Finance]
@@ -43,7 +43,7 @@ np.random.seed(42)
 
 # Overview
 
-In this project, I implement and compare **three regime-switching portfolio strategies** that differ only in their optimization objectives:
+In this project, I implement and compare **two regime-switching portfolio strategies** that differ only in their optimization objectives:
 
 | Strategy | Trend Regime (Risk-On) | Defensive Regime (Risk-Off) |
 |----------|------------------------|----------------------------|
@@ -80,7 +80,7 @@ Trading clock:
 | Trend Window ($W_{tr}$) | 60 days | Window for slope regression |
 | Trend Threshold ($\tau$) | 2.0 | T-statistic required to trigger Trend regime |
 | Optimization Lookback | 252 days | History used for covariance/mean estimation |
-| Max Weight | 100% | Maximum allocation to any single ticker |
+| Max Weight | 20% (100% for CVaR) | Maximum allocation to any single ticker |
 | Turnover Buffer ($\theta$) | 5% | Minimum weight change to trigger rebalance |
 | CVaR Confidence | 95% | Tail risk threshold (Strategies 1 & 2) |
 | Covariance Estimator | Ledoit-Wolf | Shrinkage estimator for numerical stability |
@@ -338,8 +338,6 @@ def compute_cvar_numba(returns, weights, alpha):
     return cvar
 ```
 
-## Signal Construction
-
 ## 1. Definitions & Returns
 
 Let $P_t$ be the **adjusted closing price** of SPY on trading day $t$. Define the daily **log return**:
@@ -390,7 +388,7 @@ $$
 
 ### 3A. Log-linear regression
 
-For each day $t$, fit an OLS regression using the most recent $W_{\text{tr}}=20$ observations:
+For each day $t$, fit an OLS regression using the most recent $W_{\text{tr}}=60$ observations:
 
 $$
 y_{t-W_{\text{tr}}+1+k} = a_t + b_t x_k + \varepsilon_{t-W_{\text{tr}}+1+k}, \quad k=0,1,\dots,W_{\text{tr}}-1
@@ -414,14 +412,13 @@ with threshold $\tau = 2.0$.
 
 ## 4. Final Signal Construction ($S_t$)
 
-**High-volatility overrides trend.**
+**Two regimes with high-volatility override:**
 
 $$
 S_t =
 \begin{cases}
-2 & \text{if } H_t = 1 \quad (\text{High Volatility}),\\
-1 & \text{if } H_t = 0 \ \text{and}\ Tr_t = 1 \quad (\text{Uptrend}),\\
-0 & \text{otherwise} \quad (\text{Low Vol / no uptrend}).
+1 & \text{if } H_t = 0 \ \text{and}\ Tr_t = 1 \quad (\text{Trend: risk-on}),\\
+0 & \text{otherwise} \quad (\text{Defensive: high-vol or no uptrend}).
 \end{cases}
 $$
 
@@ -685,7 +682,7 @@ sig['date'] = pd.to_datetime(sig['date'])
 
 # Parameters
 lookback = 252
-w_max = 0.2  # Allow full concentration
+w_max = 0.2  # Maximum 20% per asset (except CVaR: 100%)
 theta = 0.05  # Turnover filter
 fee = 0.0010  # 10 bps
 
@@ -760,8 +757,11 @@ for strat_name, objectives in strategies.items():
         else:  # Defensive regime
             objective = objectives['defensive']
         
+        # CVaR allows full concentration; others use w_max
+        current_max_weight = 1.0 if objective == 'cvar' else w_max
+        
         try:
-            new_w, shrinkage = optimize_portfolio_lw(train_returns, objective=objective, max_weight=w_max)
+            new_w, shrinkage = optimize_portfolio_lw(train_returns, objective=objective, max_weight=current_max_weight)
             shrinkage_history.append(shrinkage)
         except Exception:
             new_w = None
