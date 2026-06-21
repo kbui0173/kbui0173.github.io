@@ -1,6 +1,6 @@
 # Fdb version 4
-["pdflatex"] 1767094876.13274 "/Users/macbook/Desktop/GITHUB/personal-site/resume/src/my_resume.tex" "my_resume.pdf" "my_resume" 1767094876.98345 0
-  "/Users/macbook/Desktop/GITHUB/personal-site/resume/src/my_resume.tex" 1767094875.90058 6499 cf43b742edd1fd87d012ae781d18ec5c ""
+["pdflatex"] 1767348471.43309 "/Users/macbook/Desktop/GITHUB/personal-site/resume/src/my_resume.tex" "my_resume.pdf" "my_resume" 1767348472.26218 0
+  "/Users/macbook/Desktop/GITHUB/personal-site/resume/src/my_resume.tex" 1767348470.39559 7595 6427c73a75ee53c9ad86978505a96b9a ""
   "/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/fontawesome5/fa5brands0.enc" 1622837620 2920 d63721872b8c77041b88e51b8f7c291d ""
   "/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/fontawesome5/fa5free1.enc" 1622837620 3042 0e2b14b9be7d01075a4c4591d5d1781b ""
@@ -164,11 +164,11 @@
   "/usr/local/texlive/2024/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1729726526.00683 5467645 128b85b7cde5f5edc5cb7f1dd7ff8736 ""
   "/usr/local/texlive/2024/texmf-var/web2c/pdftex/pdflatex.fmt" 1729726431 8221435 451420f1b810b602c21c77eaeee628a7 ""
   "/usr/local/texlive/2024/texmf.cnf" 1710266656 577 e590dabc9e28c5b61546e15f63eebcdf ""
-  "Expressive.cls" 1766679978.35538 5188 c75cb848a0a796a35a86dc1ef23b19c4 ""
+  "Expressive.cls" 1767340393.70359 5195 8ed13c0abdf6db75102034e8096c1b29 ""
   "ExpressiveResume.cls" 1766661839.11191 3406 a71d9537f92a57e6b92c8295f4526747 ""
-  "my_resume.aux" 1767094876.90694 605 e8cb3a05a55c5e9d2121d5da64e5ab13 "pdflatex"
-  "my_resume.out" 1767094876.90745 454 0d5542802f9b3dea4c94f007871bf057 "pdflatex"
-  "my_resume.tex" 1767094875.90058 6499 cf43b742edd1fd87d012ae781d18ec5c ""
+  "my_resume.aux" 1767348472.12514 605 c765057116810588381893df9cab23a7 "pdflatex"
+  "my_resume.out" 1767348472.12621 454 4dcab0ea16d6d052e62a92f9ff5954a4 "pdflatex"
+  "my_resume.tex" 1767348470.39559 7595 6427c73a75ee53c9ad86978505a96b9a ""
   (generated)
   "my_resume.aux"
   "my_resume.log"

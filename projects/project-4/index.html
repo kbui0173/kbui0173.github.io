@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.5.57">
+<meta name="generator" content="quarto-1.9.38">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -11,6 +11,9 @@
 
 <title>Bayesian Implementation: MCMC vs Variational Bayes for ASX200 – Khanh N Bui</title>
 <style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
 div.columns{display: flex; gap: min(4vw, 1.5em);}
@@ -23,8 +26,9 @@ ul.task-list li input[type="checkbox"] {
   vertical-align: middle;
 }
 /* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -35,7 +39,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
   { counter-reset: source-line 0; }
@@ -66,15 +70,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../../site_libs/quarto-search/fuse.min.js"></script>
 <script src="../../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../../">
-<script src="../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="../../site_libs/quarto-html/popper.min.js"></script>
 <script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="../../site_libs/quarto-html/anchor.min.js"></script>
 <link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<link href="../../site_libs/bootstrap/bootstrap-fe4e102436891f814c2e9ab2e24e6724.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -107,7 +112,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
 
   <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
 <script type="text/javascript">
 const typesetMath = (el) => {
@@ -120,7 +125,7 @@ const typesetMath = (el) => {
     var macros = [];
     for (var i = 0; i < mathElements.length; i++) {
       var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN") {
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
         window.katex.render(texText.data, mathElements[i], {
           displayMode: mathElements[i].classList.contains('display'),
           throwOnError: false,
@@ -139,7 +144,7 @@ window.Quarto = {
 <link rel="stylesheet" href="../../styles.css">
 </head>
 
-<body class="nav-fixed fullcontent">
+<body class="nav-fixed fullcontent quarto-light">
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top">
@@ -247,7 +252,7 @@ window.Quarto = {
 <div id="setup" class="cell" data-execution_count="1">
 <details class="code-fold">
 <summary>Import packages</summary>
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy <span class="im">import</span> stats</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy.stats <span class="im">import</span> norm, skew, kurtosis</span>
@@ -260,18 +265,18 @@ window.Quarto = {
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Set number of parallel workers (use all available cores)</span></span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>N_JOBS <span class="op">=</span> os.cpu_count()</span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">12345</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">12345</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <div id="load-data" class="cell" data-execution_count="2">
 <details class="code-fold">
 <summary>Load ASX200 returns data</summary>
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> pd.read_csv(<span class="st">"ASX_2000_2025.csv"</span>)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> pd.read_csv(<span class="st">"ASX_2000_2025.csv"</span>)</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>y <span class="op">=</span> data[<span class="st">"ret_asx"</span>].dropna().values</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>T <span class="op">=</span> <span class="bu">len</span>(y)</span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Number of observations: </span><span class="sc">{</span>T<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Date range: Row 1 to Row </span><span class="sc">{</span>T<span class="sc">}</span><span class="ss">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Date range: Row 1 to Row </span><span class="sc">{</span>T<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>Number of observations: 6513
@@ -283,10 +288,10 @@ Date range: Row 1 to Row 6513</code></pre>
 <h2 class="anchored" data-anchor-id="exploratory-data-analysis">2. Exploratory Data Analysis</h2>
 <section id="summary-statistics" class="level3">
 <h3 class="anchored" data-anchor-id="summary-statistics">2.1 Summary Statistics</h3>
-<div id="tbl-summary" class="cell anchored" data-execution_count="3">
+<div class="cell" data-execution_count="3">
 <details class="code-fold">
 <summary>Compute summary statistics</summary>
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>mean_ret <span class="op">=</span> np.mean(y)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>mean_ret <span class="op">=</span> np.mean(y)</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>median_ret <span class="op">=</span> np.median(y)</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>std_ret <span class="op">=</span> np.std(y, ddof<span class="op">=</span><span class="dv">1</span>)</span>
 <span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>variance_ret <span class="op">=</span> np.var(y, ddof<span class="op">=</span><span class="dv">1</span>)</span>
@@ -305,13 +310,19 @@ Date range: Row 1 to Row 6513</code></pre>
 <span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>              <span class="ss">f"</span><span class="sc">{</span>min_ret<span class="sc">:.4f}</span><span class="ss">%"</span>, <span class="ss">f"</span><span class="sc">{</span>max_ret<span class="sc">:.4f}</span><span class="ss">%"</span>, <span class="ss">f"</span><span class="sc">{</span>q25<span class="sc">:.4f}</span><span class="ss">%"</span>, <span class="ss">f"</span><span class="sc">{</span>q75<span class="sc">:.4f}</span><span class="ss">%"</span>]</span>
 <span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>})</span>
 <span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>summary_df</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>summary_df</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
+<div id="tbl-summary" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="3">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl quarto-uncaptioned" id="tbl-summary-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;1
+</figcaption>
+<div aria-describedby="tbl-summary-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output cell-output-display" data-execution_count="95">
 <div>
 
 
-<table class="dataframe caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
 <thead>
 <tr class="header">
 <th data-quarto-table-cell-role="th"></th>
@@ -321,52 +332,52 @@ Date range: Row 1 to Row 6513</code></pre>
 </thead>
 <tbody>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">0</td>
+<th data-quarto-table-cell-role="th">0</th>
 <td>Mean</td>
 <td>0.0162%</td>
 </tr>
 <tr class="even">
-<td data-quarto-table-cell-role="th">1</td>
+<th data-quarto-table-cell-role="th">1</th>
 <td>Median</td>
 <td>0.0578%</td>
 </tr>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">2</td>
+<th data-quarto-table-cell-role="th">2</th>
 <td>Std. Deviation</td>
 <td>0.9908%</td>
 </tr>
 <tr class="even">
-<td data-quarto-table-cell-role="th">3</td>
+<th data-quarto-table-cell-role="th">3</th>
 <td>Variance</td>
 <td>0.9816</td>
 </tr>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">4</td>
+<th data-quarto-table-cell-role="th">4</th>
 <td>Skewness</td>
 <td>-0.7100</td>
 </tr>
 <tr class="even">
-<td data-quarto-table-cell-role="th">5</td>
+<th data-quarto-table-cell-role="th">5</th>
 <td>Excess Kurtosis</td>
 <td>8.3558</td>
 </tr>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">6</td>
+<th data-quarto-table-cell-role="th">6</th>
 <td>Min</td>
 <td>-10.2030%</td>
 </tr>
 <tr class="even">
-<td data-quarto-table-cell-role="th">7</td>
+<th data-quarto-table-cell-role="th">7</th>
 <td>Max</td>
 <td>6.7665%</td>
 </tr>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">8</td>
+<th data-quarto-table-cell-role="th">8</th>
 <td>Q1 (25%)</td>
 <td>-0.4457%</td>
 </tr>
 <tr class="even">
-<td data-quarto-table-cell-role="th">9</td>
+<th data-quarto-table-cell-role="th">9</th>
 <td>Q3 (75%)</td>
 <td>0.5301%</td>
 </tr>
@@ -374,6 +385,9 @@ Date range: Row 1 to Row 6513</code></pre>
 </table>
 
 </div>
+</div>
+</div>
+</figure>
 </div>
 </div>
 <p>The mean daily return of 0.0162% indicates minimal directional drift, while the standard deviation of 0.9908% translates to an annualised volatility of approximately 15.7% (<span class="math inline">\(0.99 \times \sqrt{252}\)</span>), typical for broad equity indices.</p>
@@ -389,7 +403,7 @@ Date range: Row 1 to Row 6513</code></pre>
 <div id="cell-fig-returns" class="cell" data-execution_count="4">
 <details class="code-fold">
 <summary>Plot returns time series</summary>
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">5</span>))</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">5</span>))</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>ax.plot(y, <span class="st">'k-'</span>, linewidth<span class="op">=</span><span class="fl">0.5</span>, label<span class="op">=</span><span class="st">'Returns'</span>)</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>ax.axhline(<span class="dv">3</span> <span class="op">*</span> std_ret, color<span class="op">=</span><span class="st">'r'</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, linewidth<span class="op">=</span><span class="dv">1</span>, label<span class="op">=</span><span class="st">'+3σ'</span>)</span>
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>ax.axhline(<span class="op">-</span><span class="dv">3</span> <span class="op">*</span> std_ret, color<span class="op">=</span><span class="st">'r'</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, linewidth<span class="op">=</span><span class="dv">1</span>, label<span class="op">=</span><span class="st">'-3σ'</span>)</span>
@@ -399,7 +413,7 @@ Date range: Row 1 to Row 6513</code></pre>
 <span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>ax.legend(loc<span class="op">=</span><span class="st">'upper right'</span>)</span>
 <span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>ax.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-display">
 <div id="fig-returns" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -420,7 +434,7 @@ Figure&nbsp;1: ASX200 Daily Returns with ±3σ Bounds
 <div id="cell-fig-distribution" class="cell" data-execution_count="5">
 <details class="code-fold">
 <summary>Plot histogram and Q-Q plot</summary>
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">5</span>))</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">5</span>))</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Histogram with normal overlay</span></span>
 <span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>ax1 <span class="op">=</span> axes[<span class="dv">0</span>]</span>
@@ -442,7 +456,7 @@ Figure&nbsp;1: ASX200 Daily Returns with ±3σ Bounds
 <span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>ax2.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-display">
 <div id="fig-distribution" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -463,7 +477,7 @@ Figure&nbsp;2: Distribution Analysis: Histogram and Q-Q Plot
 <div id="cell-fig-rolling-vol" class="cell" data-execution_count="6">
 <details class="code-fold">
 <summary>Plot rolling volatility</summary>
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>window <span class="op">=</span> <span class="dv">30</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>window <span class="op">=</span> <span class="dv">30</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>rolling_vol <span class="op">=</span> pd.Series(y).rolling(window<span class="op">=</span>window).std().values</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">5</span>))</span>
@@ -472,7 +486,7 @@ Figure&nbsp;2: Distribution Analysis: Histogram and Q-Q Plot
 <span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>ax.set_ylabel(<span class="st">"30-Day Rolling Volatility (%)"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
 <span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>ax.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-display">
 <div id="fig-rolling-vol" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -648,7 +662,7 @@ q(\tilde{\theta}^* \mid \tilde{\theta}^{(n-1)}) = \mathcal{N}(\tilde{\theta}^{(n
 <div id="mcmc-helpers" class="cell" data-execution_count="7">
 <details class="code-fold">
 <summary>Define log-likelihood and log-posterior functions</summary>
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="at">@njit</span>(cache<span class="op">=</span><span class="va">True</span>)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="at">@njit</span>(cache<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> loglik_logStdGARCH_numba(y, mu, omega, alpha, beta, sigma1_sq):</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
 <span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co">    JIT-compiled log-likelihood for log-STD-GARCH(1,1) model.</span></span>
@@ -711,7 +725,7 @@ q(\tilde{\theta}^* \mid \tilde{\theta}^{(n-1)}) = \mathcal{N}(\tilde{\theta}^{(n
 <span id="cb8-61"><a href="#cb8-61" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Jacobian for beta transformation</span></span>
 <span id="cb8-62"><a href="#cb8-62" aria-hidden="true" tabindex="-1"></a>    logJac <span class="op">=</span> np.log(<span class="dv">2</span>) <span class="op">+</span> bt <span class="op">-</span> <span class="dv">2</span> <span class="op">*</span> np.log(<span class="dv">1</span> <span class="op">+</span> np.exp(bt))</span>
 <span id="cb8-63"><a href="#cb8-63" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb8-64"><a href="#cb8-64" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> loglik <span class="op">+</span> logJac</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb8-64"><a href="#cb8-64" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> loglik <span class="op">+</span> logJac</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -720,7 +734,7 @@ q(\tilde{\theta}^* \mid \tilde{\theta}^{(n-1)}) = \mathcal{N}(\tilde{\theta}^{(n
 <div id="mcmc-init" class="cell" data-execution_count="8">
 <details class="code-fold">
 <summary>Initialise MCMC parameters</summary>
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">12345</span>)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">12345</span>)</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>t_total_mcmc <span class="op">=</span> time.time()</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>sigma1_sq <span class="op">=</span> np.var(y, ddof<span class="op">=</span><span class="dv">1</span>)</span>
@@ -743,13 +757,13 @@ q(\tilde{\theta}^* \mid \tilde{\theta}^{(n-1)}) = \mathcal{N}(\tilde{\theta}^{(n
 <span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Storage</span></span>
 <span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>theta_chain <span class="op">=</span> np.zeros((N, <span class="dv">4</span>))</span>
-<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>accepted <span class="op">=</span> np.zeros(N, dtype<span class="op">=</span><span class="bu">bool</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>accepted <span class="op">=</span> np.zeros(N, dtype<span class="op">=</span><span class="bu">bool</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <div id="tbl-mcmc-settings" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-mcmc-settings-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;1: MCMC hyperparameters
+Table&nbsp;2: MCMC hyperparameters
 </figcaption>
 <div aria-describedby="tbl-mcmc-settings-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -795,7 +809,7 @@ Table&nbsp;1: MCMC hyperparameters
 <div id="mcmc-loop" class="cell" data-execution_count="9">
 <details class="code-fold">
 <summary>Run Random Walk Metropolis</summary>
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>t_mcmc <span class="op">=</span> time.time()</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>t_mcmc <span class="op">=</span> time.time()</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>log_post_current <span class="op">=</span> logPosterior_logStdGARCH(theta_tilde, y, sigma1_sq)</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> n <span class="kw">in</span> <span class="bu">range</span>(N):</span>
@@ -829,7 +843,7 @@ Table&nbsp;1: MCMC hyperparameters
 <span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"MCMC completed!"</span>)</span>
 <span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Acceptance rate: </span><span class="sc">{</span>acc_rate<span class="sc">:.1f}</span><span class="ss">%"</span>)</span>
-<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"MCMC run time: </span><span class="sc">{</span>mcmc_time<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"MCMC run time: </span><span class="sc">{</span>mcmc_time<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>MCMC completed!
@@ -840,10 +854,10 @@ MCMC run time: 5.12 seconds</code></pre>
 </section>
 <section id="posterior-summary" class="level3">
 <h3 class="anchored" data-anchor-id="posterior-summary">4.5 Posterior Summary</h3>
-<div id="tbl-mcmc-posterior" class="cell anchored" data-execution_count="10">
+<div class="cell" data-execution_count="10">
 <details class="code-fold">
 <summary>MCMC posterior summary table</summary>
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>theta_postburn <span class="op">=</span> theta_chain[N_burn:, :]</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>theta_postburn <span class="op">=</span> theta_chain[N_burn:, :]</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>theta_final <span class="op">=</span> theta_postburn  <span class="co"># No thinning</span></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>param_names <span class="op">=</span> [<span class="st">'μ'</span>, <span class="st">'ω'</span>, <span class="st">'α'</span>, <span class="st">'β'</span>]</span>
@@ -864,16 +878,22 @@ MCMC run time: 5.12 seconds</code></pre>
 <span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>mcmc_summary_df <span class="op">=</span> pd.DataFrame(summary_rows)</span>
 <span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Iterations: </span><span class="sc">{</span>N<span class="sc">}</span><span class="ss"> | Burn-in: </span><span class="sc">{</span>N_burn<span class="sc">}</span><span class="ss"> | Final samples: </span><span class="sc">{</span>theta_final<span class="sc">.</span>shape[<span class="dv">0</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>mcmc_summary_df</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>mcmc_summary_df</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>Iterations: 20000 | Burn-in: 5000 | Final samples: 15000</code></pre>
 </div>
+<div id="tbl-mcmc-posterior" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="10">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl quarto-uncaptioned" id="tbl-mcmc-posterior-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;3
+</figcaption>
+<div aria-describedby="tbl-mcmc-posterior-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output cell-output-display" data-execution_count="102">
 <div>
 
 
-<table class="dataframe caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
 <thead>
 <tr class="header">
 <th data-quarto-table-cell-role="th"></th>
@@ -886,7 +906,7 @@ MCMC run time: 5.12 seconds</code></pre>
 </thead>
 <tbody>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">0</td>
+<th data-quarto-table-cell-role="th">0</th>
 <td>μ</td>
 <td>0.0413</td>
 <td>0.0089</td>
@@ -894,7 +914,7 @@ MCMC run time: 5.12 seconds</code></pre>
 <td>0.0586</td>
 </tr>
 <tr class="even">
-<td data-quarto-table-cell-role="th">1</td>
+<th data-quarto-table-cell-role="th">1</th>
 <td>ω</td>
 <td>-0.0009</td>
 <td>0.0012</td>
@@ -902,7 +922,7 @@ MCMC run time: 5.12 seconds</code></pre>
 <td>0.0013</td>
 </tr>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">2</td>
+<th data-quarto-table-cell-role="th">2</th>
 <td>α</td>
 <td>0.1100</td>
 <td>0.0069</td>
@@ -910,7 +930,7 @@ MCMC run time: 5.12 seconds</code></pre>
 <td>0.1237</td>
 </tr>
 <tr class="even">
-<td data-quarto-table-cell-role="th">3</td>
+<th data-quarto-table-cell-role="th">3</th>
 <td>β</td>
 <td>0.9767</td>
 <td>0.0039</td>
@@ -923,10 +943,13 @@ MCMC run time: 5.12 seconds</code></pre>
 </div>
 </div>
 </div>
+</figure>
+</div>
+</div>
 <div id="mcmc-params" class="cell" data-execution_count="11">
 <details class="code-fold">
 <summary>Extract posterior estimates</summary>
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract posterior means and credible intervals for inline use</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract posterior means and credible intervals for inline use</span></span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>mu_mean <span class="op">=</span> np.mean(theta_final[:, <span class="dv">0</span>])</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>omega_mean <span class="op">=</span> np.mean(theta_final[:, <span class="dv">1</span>])</span>
 <span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>alpha_mean <span class="op">=</span> np.mean(theta_final[:, <span class="dv">2</span>])</span>
@@ -935,7 +958,7 @@ MCMC run time: 5.12 seconds</code></pre>
 <span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Derived quantities</span></span>
 <span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>annualized_return <span class="op">=</span> mu_mean <span class="op">*</span> <span class="dv">252</span></span>
-<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>half_life <span class="op">=</span> np.log(<span class="fl">0.5</span>) <span class="op">/</span> np.log(beta_mean) <span class="cf">if</span> <span class="dv">0</span> <span class="op">&lt;</span> beta_mean <span class="op">&lt;</span> <span class="dv">1</span> <span class="cf">else</span> np.nan</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>half_life <span class="op">=</span> np.log(<span class="fl">0.5</span>) <span class="op">/</span> np.log(beta_mean) <span class="cf">if</span> <span class="dv">0</span> <span class="op">&lt;</span> beta_mean <span class="op">&lt;</span> <span class="dv">1</span> <span class="cf">else</span> np.nan</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <p>The estimated parameters reveal several important features of ASX200 volatility dynamics. The mean return <span class="math inline">\(\mu =\)</span> 0.0413% per day corresponds to an annualized return of approximately 10.4%, consistent with long-run equity market performance. The intercept <span class="math inline">\(\omega =\)</span> -0.0009 is close to zero, suggesting volatility fluctuates around a stable long-run level.</p>
@@ -947,7 +970,7 @@ MCMC run time: 5.12 seconds</code></pre>
 <div id="cell-fig-trace" class="cell" data-execution_count="12">
 <details class="code-fold">
 <summary>Plot trace plots</summary>
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>param_names_tex <span class="op">=</span> [<span class="st">'μ'</span>, <span class="st">'ω'</span>, <span class="st">'α'</span>, <span class="st">'β'</span>]</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>param_names_tex <span class="op">=</span> [<span class="st">'μ'</span>, <span class="st">'ω'</span>, <span class="st">'α'</span>, <span class="st">'β'</span>]</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">2</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">8</span>))</span>
 <span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>axes <span class="op">=</span> axes.flatten()</span>
@@ -964,7 +987,7 @@ MCMC run time: 5.12 seconds</code></pre>
 <span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>        ax.legend(loc<span class="op">=</span><span class="st">'upper right'</span>)</span>
 <span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-display">
 <div id="fig-trace" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -1000,7 +1023,7 @@ Figure&nbsp;4: MCMC Trace Plots for Log-STD-GARCH(1,1) Parameters
 <div id="mcmc-forecast" class="cell" data-execution_count="13">
 <details class="code-fold">
 <summary>Compute MCMC volatility forecasts via parallel Monte Carlo simulation</summary>
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>c_norm <span class="op">=</span> np.sqrt(<span class="dv">2</span> <span class="op">/</span> np.pi)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>c_norm <span class="op">=</span> np.sqrt(<span class="dv">2</span> <span class="op">/</span> np.pi)</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Subsample posterior draws for computational efficiency (every 10th sample)</span></span>
 <span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>thin_factor <span class="op">=</span> <span class="dv">10</span></span>
@@ -1072,7 +1095,7 @@ Figure&nbsp;4: MCMC Trace Plots for Log-STD-GARCH(1,1) Parameters
 <span id="cb16-70"><a href="#cb16-70" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"  E[σ_</span><span class="ch">{{</span><span class="ss">T+2</span><span class="ch">}}</span><span class="ss">]: </span><span class="sc">{</span>sigma_T2_mean<span class="sc">:.4f}</span><span class="ss"> [95% CI: </span><span class="sc">{</span>sigma_T2_ci[<span class="dv">0</span>]<span class="sc">:.4f}</span><span class="ss">, </span><span class="sc">{</span>sigma_T2_ci[<span class="dv">1</span>]<span class="sc">:.4f}</span><span class="ss">]"</span>)</span>
 <span id="cb16-71"><a href="#cb16-71" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">MC samples used: </span><span class="sc">{</span>nS<span class="sc">}</span><span class="ss"> (subsampled from </span><span class="sc">{</span>theta_final<span class="sc">.</span>shape[<span class="dv">0</span>]<span class="sc">}</span><span class="ss"> posterior draws)"</span>)</span>
 <span id="cb16-72"><a href="#cb16-72" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Parallel workers: </span><span class="sc">{</span>N_JOBS<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb16-73"><a href="#cb16-73" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"MCMC total time: </span><span class="sc">{</span>mcmc_total_sec<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb16-73"><a href="#cb16-73" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"MCMC total time: </span><span class="sc">{</span>mcmc_total_sec<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>MCMC Volatility Forecasts (Parallel Monte Carlo):
@@ -1204,7 +1227,7 @@ v_t &amp;= \beta_2 v_{t-1} + (1-\beta_2) g_t^2 \\
 <div id="vb-helpers" class="cell" data-execution_count="14">
 <details class="code-fold">
 <summary>Define VB helper functions</summary>
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="at">@njit</span>(cache<span class="op">=</span><span class="va">True</span>)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="at">@njit</span>(cache<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> logStdGARCH_negLogLik_numba(theta, y, sigma_init):</span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""</span></span>
 <span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="co">    JIT-compiled negative log-likelihood for log-STD-GARCH(1,1).</span></span>
@@ -1470,7 +1493,7 @@ v_t &amp;= \beta_2 v_{t-1} + (1-\beta_2) g_t^2 \\
 <span id="cb18-264"><a href="#cb18-264" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">4</span>):</span>
 <span id="cb18-265"><a href="#cb18-265" aria-hidden="true" tabindex="-1"></a>        logsig_new[j] <span class="op">=</span> logsig[j] <span class="op">+</span> lr <span class="op">*</span> m_ls_hat[j] <span class="op">/</span> (np.sqrt(v_ls_hat[j]) <span class="op">+</span> eps_adam)</span>
 <span id="cb18-266"><a href="#cb18-266" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb18-267"><a href="#cb18-267" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> mu_q_new, logsig_new, m_mu_new, v_mu_new, m_logsig_new, v_logsig_new</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb18-267"><a href="#cb18-267" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> mu_q_new, logsig_new, m_mu_new, v_mu_new, m_logsig_new, v_logsig_new</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -1479,7 +1502,7 @@ v_t &amp;= \beta_2 v_{t-1} + (1-\beta_2) g_t^2 \\
 <div id="vb-init" class="cell" data-execution_count="15">
 <details class="code-fold">
 <summary>Initialise VB parameters</summary>
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">123</span>)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">123</span>)</span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>t_total_vb <span class="op">=</span> time.time()</span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>sigma_init <span class="op">=</span> np.std(y, ddof<span class="op">=</span><span class="dv">1</span>)</span>
@@ -1520,7 +1543,7 @@ v_t &amp;= \beta_2 v_{t-1} + (1-\beta_2) g_t^2 \\
 <span id="cb19-39"><a href="#cb19-39" aria-hidden="true" tabindex="-1"></a>np.random.seed(<span class="dv">123</span>)  <span class="co"># Reset seed for reproducibility</span></span>
 <span id="cb19-40"><a href="#cb19-40" aria-hidden="true" tabindex="-1"></a>all_eps <span class="op">=</span> np.random.randn(max_iter, num_samples, <span class="dv">4</span>)</span>
 <span id="cb19-41"><a href="#cb19-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-42"><a href="#cb19-42" aria-hidden="true" tabindex="-1"></a>elbo_hist <span class="op">=</span> np.full(max_iter, np.nan)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb19-42"><a href="#cb19-42" aria-hidden="true" tabindex="-1"></a>elbo_hist <span class="op">=</span> np.full(max_iter, np.nan)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -1529,7 +1552,7 @@ v_t &amp;= \beta_2 v_{t-1} + (1-\beta_2) g_t^2 \\
 <div id="vb-loop" class="cell" data-execution_count="16">
 <details class="code-fold">
 <summary>Run Variational Bayes optimisation (vectorised)</summary>
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>t_vb <span class="op">=</span> time.time()</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>t_vb <span class="op">=</span> time.time()</span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> iter_idx <span class="kw">in</span> <span class="bu">range</span>(max_iter):</span>
 <span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Use pre-allocated random numbers (Step 4)</span></span>
@@ -1581,7 +1604,7 @@ v_t &amp;= \beta_2 v_{t-1} + (1-\beta_2) g_t^2 \\
 <span id="cb20-50"><a href="#cb20-50" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"VB converged at iteration </span><span class="sc">{</span>final_iter<span class="sc">}</span><span class="ss"> (tolerance=</span><span class="sc">{</span>tol<span class="sc">}</span><span class="ss">, patience=</span><span class="sc">{</span>patience<span class="sc">}</span><span class="ss">)"</span>)</span>
 <span id="cb20-51"><a href="#cb20-51" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
 <span id="cb20-52"><a href="#cb20-52" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"VB completed </span><span class="sc">{</span>max_iter<span class="sc">}</span><span class="ss"> iterations (no early stopping)"</span>)</span>
-<span id="cb20-53"><a href="#cb20-53" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"VB run time: </span><span class="sc">{</span>vb_time<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb20-53"><a href="#cb20-53" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"VB run time: </span><span class="sc">{</span>vb_time<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>VB converged at iteration 1736 (tolerance=0.0001, patience=20)
@@ -1591,10 +1614,10 @@ VB run time: 6.38 seconds</code></pre>
 </section>
 <section id="vb-posterior-summary" class="level3">
 <h3 class="anchored" data-anchor-id="vb-posterior-summary">5.8 VB Posterior Summary</h3>
-<div id="tbl-vb-posterior" class="cell anchored" data-execution_count="17">
+<div class="cell" data-execution_count="17">
 <details class="code-fold">
 <summary>VB posterior summary</summary>
-<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>param_names <span class="op">=</span> [<span class="st">'μ'</span>, <span class="st">'ω'</span>, <span class="st">'α'</span>, <span class="st">'β'</span>]</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>param_names <span class="op">=</span> [<span class="st">'μ'</span>, <span class="st">'ω'</span>, <span class="st">'α'</span>, <span class="st">'β'</span>]</span>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>vb_summary_rows <span class="op">=</span> []</span>
 <span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">4</span>):</span>
@@ -1610,13 +1633,19 @@ VB run time: 6.38 seconds</code></pre>
 <span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>    })</span>
 <span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>vb_summary_df <span class="op">=</span> pd.DataFrame(vb_summary_rows)</span>
-<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>vb_summary_df</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>vb_summary_df</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
+<div id="tbl-vb-posterior" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="17">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl quarto-uncaptioned" id="tbl-vb-posterior-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;4
+</figcaption>
+<div aria-describedby="tbl-vb-posterior-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output cell-output-display" data-execution_count="109">
 <div>
 
 
-<table class="dataframe caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
 <thead>
 <tr class="header">
 <th data-quarto-table-cell-role="th"></th>
@@ -1629,7 +1658,7 @@ VB run time: 6.38 seconds</code></pre>
 </thead>
 <tbody>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">0</td>
+<th data-quarto-table-cell-role="th">0</th>
 <td>μ</td>
 <td>0.0451</td>
 <td>0.0065</td>
@@ -1637,7 +1666,7 @@ VB run time: 6.38 seconds</code></pre>
 <td>0.0578</td>
 </tr>
 <tr class="even">
-<td data-quarto-table-cell-role="th">1</td>
+<th data-quarto-table-cell-role="th">1</th>
 <td>ω</td>
 <td>-0.0046</td>
 <td>0.0018</td>
@@ -1645,7 +1674,7 @@ VB run time: 6.38 seconds</code></pre>
 <td>-0.0010</td>
 </tr>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">2</td>
+<th data-quarto-table-cell-role="th">2</th>
 <td>α</td>
 <td>0.1263</td>
 <td>0.0024</td>
@@ -1653,7 +1682,7 @@ VB run time: 6.38 seconds</code></pre>
 <td>0.1311</td>
 </tr>
 <tr class="even">
-<td data-quarto-table-cell-role="th">3</td>
+<th data-quarto-table-cell-role="th">3</th>
 <td>β</td>
 <td>0.9549</td>
 <td>0.0026</td>
@@ -1666,10 +1695,13 @@ VB run time: 6.38 seconds</code></pre>
 </div>
 </div>
 </div>
+</figure>
+</div>
+</div>
 <div id="vb-params" class="cell" data-execution_count="18">
 <details class="code-fold">
 <summary>Extract VB posterior estimates</summary>
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract VB posterior means for inline use</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract VB posterior means for inline use</span></span>
 <span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>mu_vb <span class="op">=</span> mu_q[<span class="dv">0</span>]</span>
 <span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>omega_vb <span class="op">=</span> mu_q[<span class="dv">1</span>]</span>
 <span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>alpha_vb <span class="op">=</span> mu_q[<span class="dv">2</span>]</span>
@@ -1678,7 +1710,7 @@ VB run time: 6.38 seconds</code></pre>
 <span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Derived quantities</span></span>
 <span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>annualized_return_vb <span class="op">=</span> mu_vb <span class="op">*</span> <span class="dv">252</span></span>
-<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>half_life_vb <span class="op">=</span> np.log(<span class="fl">0.5</span>) <span class="op">/</span> np.log(beta_vb) <span class="cf">if</span> <span class="dv">0</span> <span class="op">&lt;</span> beta_vb <span class="op">&lt;</span> <span class="dv">1</span> <span class="cf">else</span> np.nan</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>half_life_vb <span class="op">=</span> np.log(<span class="fl">0.5</span>) <span class="op">/</span> np.log(beta_vb) <span class="cf">if</span> <span class="dv">0</span> <span class="op">&lt;</span> beta_vb <span class="op">&lt;</span> <span class="dv">1</span> <span class="cf">else</span> np.nan</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <p>The VB posterior means are comparable to MCMC but with narrower credible intervals (a known property of mean-field approximations). The mean return <span class="math inline">\(\mu =\)</span> 0.0451% corresponds to an annualized return of 11.4%. The persistence parameter <span class="math inline">\(\beta =\)</span> 0.9549 implies a half-life of 15 trading days.</p>
@@ -1689,14 +1721,14 @@ VB run time: 6.38 seconds</code></pre>
 <div id="cell-fig-elbo" class="cell" data-execution_count="19">
 <details class="code-fold">
 <summary>Plot ELBO convergence</summary>
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">5</span>))</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">5</span>))</span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>ax.plot(elbo_hist, <span class="st">'b-'</span>, linewidth<span class="op">=</span><span class="fl">1.2</span>)</span>
 <span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">"Iteration"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
 <span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>ax.set_ylabel(<span class="st">"Approximate ELBO"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
 <span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>ax.set_title(<span class="st">"VB (diagonal q, no MLE initialisation)"</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
 <span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>ax.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-display">
 <div id="fig-elbo" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -1717,7 +1749,7 @@ Figure&nbsp;5: Variational Bayes ELBO Convergence
 <div id="cell-fig-vb-vol" class="cell" data-execution_count="20">
 <details class="code-fold">
 <summary>Plot VB volatility and residuals</summary>
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute fitted volatility using VB posterior mean</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute fitted volatility using VB posterior mean</span></span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>_, sigma_vb, log_sigma_vb <span class="op">=</span> logStdGARCH_negLogLik(mu_q, y, np.std(y, ddof<span class="op">=</span><span class="dv">1</span>))</span>
 <span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>eps_vb <span class="op">=</span> (y <span class="op">-</span> mu_q[<span class="dv">0</span>]) <span class="op">/</span> sigma_vb</span>
 <span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a></span>
@@ -1728,18 +1760,18 @@ Figure&nbsp;5: Variational Bayes ELBO Convergence
 <span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>ax1.plot(y, color<span class="op">=</span><span class="st">'gray'</span>, linewidth<span class="op">=</span><span class="fl">0.5</span>, label<span class="op">=</span><span class="st">'Returns'</span>)</span>
 <span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>ax1.plot(mu_q[<span class="dv">0</span>] <span class="op">+</span> <span class="dv">2</span> <span class="op">*</span> sigma_vb, <span class="st">'r--'</span>, linewidth<span class="op">=</span><span class="dv">1</span>, label<span class="op">=</span><span class="st">'+2σ'</span>)</span>
 <span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>ax1.plot(mu_q[<span class="dv">0</span>] <span class="op">-</span> <span class="dv">2</span> <span class="op">*</span> sigma_vb, <span class="st">'r--'</span>, linewidth<span class="op">=</span><span class="dv">1</span>, label<span class="op">=</span><span class="st">'-2σ'</span>)</span>
-<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>ax1.set_title(<span class="vs">r"Returns with $\pm 2\sigma_t$ (VB)"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>ax1.set_title(<span class="vs">r"Returns with </span><span class="dv">$</span><span class="er">\</span><span class="vs">pm 2</span><span class="dv">\s</span><span class="vs">igma_t</span><span class="dv">$</span><span class="vs"> </span><span class="kw">(</span><span class="vs">VB</span><span class="kw">)</span><span class="vs">"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
 <span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a>ax1.set_xlabel(<span class="st">"Time"</span>)</span>
-<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>ax1.set_ylabel(<span class="vs">r"$y_t$"</span>)</span>
+<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a>ax1.set_ylabel(<span class="vs">r"</span><span class="dv">$</span><span class="vs">y_t</span><span class="dv">$</span><span class="vs">"</span>)</span>
 <span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>ax1.legend(loc<span class="op">=</span><span class="st">'upper right'</span>, fontsize<span class="op">=</span><span class="dv">8</span>)</span>
 <span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a>ax1.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Volatility series</span></span>
 <span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a>ax2 <span class="op">=</span> axes[<span class="dv">0</span>, <span class="dv">1</span>]</span>
 <span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a>ax2.plot(sigma_vb, <span class="st">'b-'</span>, linewidth<span class="op">=</span><span class="dv">1</span>)</span>
-<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a>ax2.set_title(<span class="vs">r"Volatility $\sigma_t$ (VB)"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
+<span id="cb25-21"><a href="#cb25-21" aria-hidden="true" tabindex="-1"></a>ax2.set_title(<span class="vs">r"Volatility </span><span class="dv">$\s</span><span class="vs">igma_t</span><span class="dv">$</span><span class="vs"> </span><span class="kw">(</span><span class="vs">VB</span><span class="kw">)</span><span class="vs">"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
 <span id="cb25-22"><a href="#cb25-22" aria-hidden="true" tabindex="-1"></a>ax2.set_xlabel(<span class="st">"Time"</span>)</span>
-<span id="cb25-23"><a href="#cb25-23" aria-hidden="true" tabindex="-1"></a>ax2.set_ylabel(<span class="vs">r"$\sigma_t$"</span>)</span>
+<span id="cb25-23"><a href="#cb25-23" aria-hidden="true" tabindex="-1"></a>ax2.set_ylabel(<span class="vs">r"</span><span class="dv">$\s</span><span class="vs">igma_t</span><span class="dv">$</span><span class="vs">"</span>)</span>
 <span id="cb25-24"><a href="#cb25-24" aria-hidden="true" tabindex="-1"></a>ax2.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb25-25"><a href="#cb25-25" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-26"><a href="#cb25-26" aria-hidden="true" tabindex="-1"></a><span class="co"># Standardised residuals</span></span>
@@ -1749,7 +1781,7 @@ Figure&nbsp;5: Variational Bayes ELBO Convergence
 <span id="cb25-30"><a href="#cb25-30" aria-hidden="true" tabindex="-1"></a>ax3.axhline(<span class="op">-</span><span class="dv">2</span>, color<span class="op">=</span><span class="st">'r'</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, linewidth<span class="op">=</span><span class="dv">1</span>)</span>
 <span id="cb25-31"><a href="#cb25-31" aria-hidden="true" tabindex="-1"></a>ax3.set_title(<span class="st">"Standardised residuals (VB)"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
 <span id="cb25-32"><a href="#cb25-32" aria-hidden="true" tabindex="-1"></a>ax3.set_xlabel(<span class="st">"Time"</span>)</span>
-<span id="cb25-33"><a href="#cb25-33" aria-hidden="true" tabindex="-1"></a>ax3.set_ylabel(<span class="vs">r"$\epsilon_t$"</span>)</span>
+<span id="cb25-33"><a href="#cb25-33" aria-hidden="true" tabindex="-1"></a>ax3.set_ylabel(<span class="vs">r"</span><span class="dv">$</span><span class="er">\</span><span class="vs">epsilon_t</span><span class="dv">$</span><span class="vs">"</span>)</span>
 <span id="cb25-34"><a href="#cb25-34" aria-hidden="true" tabindex="-1"></a>ax3.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb25-35"><a href="#cb25-35" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-36"><a href="#cb25-36" aria-hidden="true" tabindex="-1"></a><span class="co"># Residual histogram vs N(0,1)</span></span>
@@ -1758,13 +1790,13 @@ Figure&nbsp;5: Variational Bayes ELBO Convergence
 <span id="cb25-39"><a href="#cb25-39" aria-hidden="true" tabindex="-1"></a>xgrid <span class="op">=</span> np.linspace(np.<span class="bu">min</span>(eps_vb), np.<span class="bu">max</span>(eps_vb), <span class="dv">200</span>)</span>
 <span id="cb25-40"><a href="#cb25-40" aria-hidden="true" tabindex="-1"></a>ax4.plot(xgrid, norm.pdf(xgrid, <span class="dv">0</span>, <span class="dv">1</span>), <span class="st">'r-'</span>, linewidth<span class="op">=</span><span class="fl">1.5</span>, label<span class="op">=</span><span class="st">'N(0,1)'</span>)</span>
 <span id="cb25-41"><a href="#cb25-41" aria-hidden="true" tabindex="-1"></a>ax4.set_title(<span class="st">"VB residuals vs N(0,1)"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
-<span id="cb25-42"><a href="#cb25-42" aria-hidden="true" tabindex="-1"></a>ax4.set_xlabel(<span class="vs">r"$\epsilon_t$"</span>)</span>
+<span id="cb25-42"><a href="#cb25-42" aria-hidden="true" tabindex="-1"></a>ax4.set_xlabel(<span class="vs">r"</span><span class="dv">$</span><span class="er">\</span><span class="vs">epsilon_t</span><span class="dv">$</span><span class="vs">"</span>)</span>
 <span id="cb25-43"><a href="#cb25-43" aria-hidden="true" tabindex="-1"></a>ax4.set_ylabel(<span class="st">"Density"</span>)</span>
 <span id="cb25-44"><a href="#cb25-44" aria-hidden="true" tabindex="-1"></a>ax4.legend(loc<span class="op">=</span><span class="st">'upper right'</span>)</span>
 <span id="cb25-45"><a href="#cb25-45" aria-hidden="true" tabindex="-1"></a>ax4.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb25-46"><a href="#cb25-46" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-47"><a href="#cb25-47" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb25-48"><a href="#cb25-48" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb25-48"><a href="#cb25-48" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-display">
 <div id="fig-vb-vol" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -1796,7 +1828,7 @@ Figure&nbsp;6: VB Fitted Volatility and Residual Diagnostics
 <div id="vb-forecast-mc" class="cell" data-execution_count="21">
 <details class="code-fold">
 <summary>Compute VB volatility forecasts via parallel Monte Carlo simulation</summary>
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>num_forecast_draws <span class="op">=</span> <span class="dv">5000</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>num_forecast_draws <span class="op">=</span> <span class="dv">5000</span></span>
 <span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>sigma_q <span class="op">=</span> sigma_q_final</span>
 <span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Pre-generate random draws for reproducibility</span></span>
@@ -1883,7 +1915,7 @@ Figure&nbsp;6: VB Fitted Volatility and Residual Diagnostics
 <span id="cb26-85"><a href="#cb26-85" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Warning: No valid VB forecast draws obtained."</span>)</span>
 <span id="cb26-86"><a href="#cb26-86" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb26-87"><a href="#cb26-87" aria-hidden="true" tabindex="-1"></a>vb_total_sec <span class="op">=</span> time.time() <span class="op">-</span> t_total_vb</span>
-<span id="cb26-88"><a href="#cb26-88" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">VB total time: </span><span class="sc">{</span>vb_total_sec<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb26-88"><a href="#cb26-88" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">VB total time: </span><span class="sc">{</span>vb_total_sec<span class="sc">:.2f}</span><span class="ss"> seconds"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>VB Volatility Forecasts (Parallel Monte Carlo):
@@ -1932,7 +1964,7 @@ VB total time: 8.14 seconds</code></pre>
 <div id="cell-fig-comparison" class="cell" data-execution_count="22">
 <details class="code-fold">
 <summary>Plot MCMC vs VB posterior densities</summary>
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy.stats <span class="im">import</span> gaussian_kde</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy.stats <span class="im">import</span> gaussian_kde</span>
 <span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>param_names_plot <span class="op">=</span> [<span class="st">'μ'</span>, <span class="st">'ω'</span>, <span class="st">'α'</span>, <span class="st">'β'</span>]</span>
 <span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a></span>
@@ -1965,7 +1997,7 @@ VB total time: 8.14 seconds</code></pre>
 <span id="cb28-31"><a href="#cb28-31" aria-hidden="true" tabindex="-1"></a>    ax.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb28-32"><a href="#cb28-32" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb28-33"><a href="#cb28-33" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
-<span id="cb28-34"><a href="#cb28-34" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb28-34"><a href="#cb28-34" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-display">
 <div id="fig-comparison" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -1983,22 +2015,28 @@ Figure&nbsp;7: Comparison of MCMC and VB Posterior Densities
 </section>
 <section id="runtime-summary" class="level3">
 <h3 class="anchored" data-anchor-id="runtime-summary">6.2 Runtime Summary</h3>
-<div id="tbl-runtime" class="cell anchored" data-execution_count="23">
+<div class="cell" data-execution_count="23">
 <details class="code-fold">
 <summary>Runtime comparison table</summary>
-<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>runtime_df <span class="op">=</span> pd.DataFrame({</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>runtime_df <span class="op">=</span> pd.DataFrame({</span>
 <span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">'Method'</span>: [<span class="st">'MCMC (RWM)'</span>, <span class="st">'Variational Bayes'</span>, <span class="st">'Total'</span>],</span>
 <span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">'Iterations'</span>: [N, max_iter, <span class="st">'-'</span>],</span>
 <span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">'Time (sec)'</span>: [<span class="ss">f"</span><span class="sc">{</span>mcmc_total_sec<span class="sc">:.2f}</span><span class="ss">"</span>, <span class="ss">f"</span><span class="sc">{</span>vb_total_sec<span class="sc">:.2f}</span><span class="ss">"</span>, <span class="ss">f"</span><span class="sc">{</span>mcmc_total_sec <span class="op">+</span> vb_total_sec<span class="sc">:.2f}</span><span class="ss">"</span>]</span>
 <span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>})</span>
 <span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>runtime_df</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>runtime_df</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
+<div id="tbl-runtime" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="23">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl quarto-uncaptioned" id="tbl-runtime-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;5
+</figcaption>
+<div aria-describedby="tbl-runtime-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output cell-output-display" data-execution_count="115">
 <div>
 
 
-<table class="dataframe caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
 <thead>
 <tr class="header">
 <th data-quarto-table-cell-role="th"></th>
@@ -2009,19 +2047,19 @@ Figure&nbsp;7: Comparison of MCMC and VB Posterior Densities
 </thead>
 <tbody>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">0</td>
+<th data-quarto-table-cell-role="th">0</th>
 <td>MCMC (RWM)</td>
 <td>20000</td>
 <td>5.86</td>
 </tr>
 <tr class="even">
-<td data-quarto-table-cell-role="th">1</td>
+<th data-quarto-table-cell-role="th">1</th>
 <td>Variational Bayes</td>
 <td>3000</td>
 <td>8.14</td>
 </tr>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">2</td>
+<th data-quarto-table-cell-role="th">2</th>
 <td>Total</td>
 <td>-</td>
 <td>14.00</td>
@@ -2030,6 +2068,9 @@ Figure&nbsp;7: Comparison of MCMC and VB Posterior Densities
 </table>
 
 </div>
+</div>
+</div>
+</figure>
 </div>
 </div>
 </section>
@@ -2048,7 +2089,7 @@ Figure&nbsp;7: Comparison of MCMC and VB Posterior Densities
 <div id="tbl-vb-opt" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-vb-opt-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;2: VB implementation choices
+Table&nbsp;6: VB implementation choices
 </figcaption>
 <div aria-describedby="tbl-vb-opt-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <table class="caption-top table">
@@ -2104,290 +2145,294 @@ Table&nbsp;2: VB implementation choices
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
-window.document.addEventListener("DOMContentLoaded", function (event) {
-  const toggleBodyColorMode = (bsSheetEl) => {
-    const mode = bsSheetEl.getAttribute("data-mode");
-    const bodyEl = window.document.querySelector("body");
-    if (mode === "dark") {
-      bodyEl.classList.add("quarto-dark");
-      bodyEl.classList.remove("quarto-light");
-    } else {
-      bodyEl.classList.add("quarto-light");
-      bodyEl.classList.remove("quarto-dark");
-    }
-  }
-  const toggleBodyColorPrimary = () => {
-    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
-    if (bsSheetEl) {
-      toggleBodyColorMode(bsSheetEl);
-    }
-  }
-  toggleBodyColorPrimary();  
-  const icon = "";
-  const anchorJS = new window.AnchorJS();
-  anchorJS.options = {
-    placement: 'right',
-    icon: icon
-  };
-  anchorJS.add('.anchored');
-  const isCodeAnnotation = (el) => {
-    for (const clz of el.classList) {
-      if (clz.startsWith('code-annotation-')) {                     
-        return true;
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
       }
+      return false;
     }
-    return false;
-  }
-  const onCopySuccess = function(e) {
-    // button target
-    const button = e.trigger;
-    // don't keep focus
-    button.blur();
-    // flash "checked"
-    button.classList.add('code-copy-button-checked');
-    var currentTitle = button.getAttribute("title");
-    button.setAttribute("title", "Copied!");
-    let tooltip;
-    if (window.bootstrap) {
-      button.setAttribute("data-bs-toggle", "tooltip");
-      button.setAttribute("data-bs-placement", "left");
-      button.setAttribute("data-bs-title", "Copied!");
-      tooltip = new bootstrap.Tooltip(button, 
-        { trigger: "manual", 
-          customClass: "code-copy-button-tooltip",
-          offset: [0, -8]});
-      tooltip.show();    
-    }
-    setTimeout(function() {
-      if (tooltip) {
-        tooltip.hide();
-        button.removeAttribute("data-bs-title");
-        button.removeAttribute("data-bs-toggle");
-        button.removeAttribute("data-bs-placement");
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
       }
-      button.setAttribute("title", currentTitle);
-      button.classList.remove('code-copy-button-checked');
-    }, 1000);
-    // clear code selection
-    e.clearSelection();
-  }
-  const getTextToCopy = function(trigger) {
-      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
       for (const childEl of codeEl.children) {
         if (isCodeAnnotation(childEl)) {
           childEl.remove();
         }
       }
       return codeEl.innerText;
-  }
-  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
-    text: getTextToCopy
-  });
-  clipboard.on('success', onCopySuccess);
-  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
-    // For code content inside modals, clipBoardJS needs to be initialized with a container option
-    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
-    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
-      text: getTextToCopy,
-      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
     });
-    clipboardModal.on('success', onCopySuccess);
-  }
-  const viewSource = window.document.getElementById('quarto-view-source') ||
-                     window.document.getElementById('quarto-code-tools-source');
-  if (viewSource) {
-    const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
-    viewSource.addEventListener("click", function(e) {
-      if (sourceUrl) {
-        // rstudio viewer pane
-        if (/\bcapabilities=\b/.test(window.location)) {
-          window.open(sourceUrl);
-        } else {
-          window.location.href = sourceUrl;
-        }
-      } else {
-        const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
-        modal.show();
-      }
-      return false;
-    });
-  }
-  function toggleCodeHandler(show) {
-    return function(e) {
-      const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
-      for (let i=0; i<detailsSrc.length; i++) {
-        const details = detailsSrc[i].parentElement;
-        if (show) {
-          details.open = true;
-        } else {
-          details.removeAttribute("open");
-        }
-      }
-      const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
-      const fromCls = show ? "hidden" : "unhidden";
-      const toCls = show ? "unhidden" : "hidden";
-      for (let i=0; i<cellCodeDivs.length; i++) {
-        const codeDiv = cellCodeDivs[i];
-        if (codeDiv.classList.contains(fromCls)) {
-          codeDiv.classList.remove(fromCls);
-          codeDiv.classList.add(toCls);
-        } 
-      }
-      return false;
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
     }
-  }
-  const hideAllCode = window.document.getElementById("quarto-hide-all-code");
-  if (hideAllCode) {
-    hideAllCode.addEventListener("click", toggleCodeHandler(false));
-  }
-  const showAllCode = window.document.getElementById("quarto-show-all-code");
-  if (showAllCode) {
-    showAllCode.addEventListener("click", toggleCodeHandler(true));
-  }
-    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
-    var mailtoRegex = new RegExp(/^mailto:/);
-      var filterRegex = new RegExp("https:\/\/kbui0173\.github\.io\/");
-    var isInternal = (href) => {
-        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
-    }
-    // Inspect non-navigation links and adorn them if external
- 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
-    for (var i=0; i<links.length; i++) {
-      const link = links[i];
-      if (!isInternal(link.href)) {
-        // undo the damage that might have been done by quarto-nav.js in the case of
-        // links that we want to consider external
-        if (link.dataset.originalHref !== undefined) {
-          link.href = link.dataset.originalHref;
-        }
-      }
-    }
-  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
-    const config = {
-      allowHTML: true,
-      maxWidth: 500,
-      delay: 100,
-      arrow: false,
-      appendTo: function(el) {
-          return el.parentElement;
-      },
-      interactive: true,
-      interactiveBorder: 10,
-      theme: 'quarto',
-      placement: 'bottom-start',
-    };
-    if (contentFn) {
-      config.content = contentFn;
-    }
-    if (onTriggerFn) {
-      config.onTrigger = onTriggerFn;
-    }
-    if (onUntriggerFn) {
-      config.onUntrigger = onUntriggerFn;
-    }
-    window.tippy(el, config); 
-  }
-  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
-  for (var i=0; i<noterefs.length; i++) {
-    const ref = noterefs[i];
-    tippyHover(ref, function() {
-      // use id or data attribute instead here
-      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
-      try { href = new URL(href).hash; } catch {}
-      const id = href.replace(/^#\/?/, "");
-      const note = window.document.getElementById(id);
-      if (note) {
-        return note.innerHTML;
-      } else {
-        return "";
-      }
-    });
-  }
-  const xrefs = window.document.querySelectorAll('a.quarto-xref');
-  const processXRef = (id, note) => {
-    // Strip column container classes
-    const stripColumnClz = (el) => {
-      el.classList.remove("page-full", "page-columns");
-      if (el.children) {
-        for (const child of el.children) {
-          stripColumnClz(child);
-        }
-      }
-    }
-    stripColumnClz(note)
-    if (id === null || id.startsWith('sec-')) {
-      // Special case sections, only their first couple elements
-      const container = document.createElement("div");
-      if (note.children && note.children.length > 2) {
-        container.appendChild(note.children[0].cloneNode(true));
-        for (let i = 1; i < note.children.length; i++) {
-          const child = note.children[i];
-          if (child.tagName === "P" && child.innerText === "") {
-            continue;
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
           } else {
-            container.appendChild(child.cloneNode(true));
-            break;
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
           }
         }
-        if (window.Quarto?.typesetMath) {
-          window.Quarto.typesetMath(container);
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
         }
-        return container.innerHTML
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/kbui0173\.github\.io\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
       } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
         if (window.Quarto?.typesetMath) {
           window.Quarto.typesetMath(note);
         }
-        return note.innerHTML;
-      }
-    } else {
-      // Remove any anchor links if they are present
-      const anchorLink = note.querySelector('a.anchorjs-link');
-      if (anchorLink) {
-        anchorLink.remove();
-      }
-      if (window.Quarto?.typesetMath) {
-        window.Quarto.typesetMath(note);
-      }
-      // TODO in 1.5, we should make sure this works without a callout special case
-      if (note.classList.contains("callout")) {
-        return note.outerHTML;
-      } else {
-        return note.innerHTML;
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
       }
     }
-  }
-  for (var i=0; i<xrefs.length; i++) {
-    const xref = xrefs[i];
-    tippyHover(xref, undefined, function(instance) {
-      instance.disable();
-      let url = xref.getAttribute('href');
-      let hash = undefined; 
-      if (url.startsWith('#')) {
-        hash = url;
-      } else {
-        try { hash = new URL(url).hash; } catch {}
-      }
-      if (hash) {
-        const id = hash.replace(/^#\/?/, "");
-        const note = window.document.getElementById(id);
-        if (note !== null) {
-          try {
-            const html = processXRef(id, note.cloneNode(true));
-            instance.setContent(html);
-          } finally {
-            instance.enable();
-            instance.show();
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
           }
         } else {
-          // See if we can fetch this
-          fetch(url.split('#')[0])
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
           .then(res => res.text())
           .then(html => {
             const parser = new DOMParser();
             const htmlDoc = parser.parseFromString(html, "text/html");
-            const note = htmlDoc.getElementById(id);
+            const note = htmlDoc.querySelector('main.content');
             if (note !== null) {
-              const html = processXRef(id, note);
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
               instance.setContent(html);
             } 
           }).finally(() => {
@@ -2395,186 +2440,162 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
             instance.show();
           });
         }
-      } else {
-        // See if we can fetch a full url (with no hash to target)
-        // This is a special case and we should probably do some content thinning / targeting
-        fetch(url)
-        .then(res => res.text())
-        .then(html => {
-          const parser = new DOMParser();
-          const htmlDoc = parser.parseFromString(html, "text/html");
-          const note = htmlDoc.querySelector('main.content');
-          if (note !== null) {
-            // This should only happen for chapter cross references
-            // (since there is no id in the URL)
-            // remove the first header
-            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
-              note.children[0].remove();
-            }
-            const html = processXRef(null, note);
-            instance.setContent(html);
-          } 
-        }).finally(() => {
-          instance.enable();
-          instance.show();
-        });
-      }
-    }, function(instance) {
-    });
-  }
-      let selectedAnnoteEl;
-      const selectorForAnnotation = ( cell, annotation) => {
-        let cellAttr = 'data-code-cell="' + cell + '"';
-        let lineAttr = 'data-code-annotation="' +  annotation + '"';
-        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
-        return selector;
-      }
-      const selectCodeLines = (annoteEl) => {
-        const doc = window.document;
-        const targetCell = annoteEl.getAttribute("data-target-cell");
-        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
-        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
-        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
-        const lineIds = lines.map((line) => {
-          return targetCell + "-" + line;
-        })
-        let top = null;
-        let height = null;
-        let parent = null;
-        if (lineIds.length > 0) {
-            //compute the position of the single el (top and bottom and make a div)
-            const el = window.document.getElementById(lineIds[0]);
-            top = el.offsetTop;
-            height = el.offsetHeight;
-            parent = el.parentElement.parentElement;
-          if (lineIds.length > 1) {
-            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
-            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
-            height = bottom - top;
-          }
-          if (top !== null && height !== null && parent !== null) {
-            // cook up a div (if necessary) and position it 
-            let div = window.document.getElementById("code-annotation-line-highlight");
-            if (div === null) {
-              div = window.document.createElement("div");
-              div.setAttribute("id", "code-annotation-line-highlight");
-              div.style.position = 'absolute';
-              parent.appendChild(div);
-            }
-            div.style.top = top - 2 + "px";
-            div.style.height = height + 4 + "px";
-            div.style.left = 0;
-            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
-            if (gutterDiv === null) {
-              gutterDiv = window.document.createElement("div");
-              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
-              gutterDiv.style.position = 'absolute';
-              const codeCell = window.document.getElementById(targetCell);
-              const gutter = codeCell.querySelector('.code-annotation-gutter');
-              gutter.appendChild(gutterDiv);
-            }
-            gutterDiv.style.top = top - 2 + "px";
-            gutterDiv.style.height = height + 4 + "px";
-          }
-          selectedAnnoteEl = annoteEl;
-        }
-      };
-      const unselectCodeLines = () => {
-        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
-        elementsIds.forEach((elId) => {
-          const div = window.document.getElementById(elId);
-          if (div) {
-            div.remove();
-          }
-        });
-        selectedAnnoteEl = undefined;
-      };
-        // Handle positioning of the toggle
-    window.addEventListener(
-      "resize",
-      throttle(() => {
-        elRect = undefined;
-        if (selectedAnnoteEl) {
-          selectCodeLines(selectedAnnoteEl);
-        }
-      }, 10)
-    );
-    function throttle(fn, ms) {
-    let throttle = false;
-    let timer;
-      return (...args) => {
-        if(!throttle) { // first call gets through
-            fn.apply(this, args);
-            throttle = true;
-        } else { // all the others get throttled
-            if(timer) clearTimeout(timer); // cancel #2
-            timer = setTimeout(() => {
-              fn.apply(this, args);
-              timer = throttle = false;
-            }, ms);
-        }
-      };
-    }
-      // Attach click handler to the DT
-      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
-      for (const annoteDlNode of annoteDls) {
-        annoteDlNode.addEventListener('click', (event) => {
-          const clickedEl = event.target;
-          if (clickedEl !== selectedAnnoteEl) {
-            unselectCodeLines();
-            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
-            if (activeEl) {
-              activeEl.classList.remove('code-annotation-active');
-            }
-            selectCodeLines(clickedEl);
-            clickedEl.classList.add('code-annotation-active');
-          } else {
-            // Unselect the line
-            unselectCodeLines();
-            clickedEl.classList.remove('code-annotation-active');
-          }
-        });
-      }
-  const findCites = (el) => {
-    const parentEl = el.parentElement;
-    if (parentEl) {
-      const cites = parentEl.dataset.cites;
-      if (cites) {
-        return {
-          el,
-          cites: cites.split(' ')
-        };
-      } else {
-        return findCites(el.parentElement)
-      }
-    } else {
-      return undefined;
-    }
-  };
-  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
-  for (var i=0; i<bibliorefs.length; i++) {
-    const ref = bibliorefs[i];
-    const citeInfo = findCites(ref);
-    if (citeInfo) {
-      tippyHover(citeInfo.el, function() {
-        var popup = window.document.createElement('div');
-        citeInfo.cites.forEach(function(cite) {
-          var citeDiv = window.document.createElement('div');
-          citeDiv.classList.add('hanging-indent');
-          citeDiv.classList.add('csl-entry');
-          var biblioDiv = window.document.getElementById('ref-' + cite);
-          if (biblioDiv) {
-            citeDiv.innerHTML = biblioDiv.innerHTML;
-          }
-          popup.appendChild(citeDiv);
-        });
-        return popup.innerHTML;
+      }, function(instance) {
       });
     }
-  }
-});
-</script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="sourceCode" id="cb30" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb30" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Bayesian Implementation: MCMC vs Variational Bayes for ASX200"</span></span>
 <span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Practical implementation and computational comparison of Random Walk Metropolis and Variational Bayes for log-STD-GARCH(1,1) volatility models, with JIT optimisation and parallel Monte Carlo forecasting"</span></span>
 <span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2025-11-12"</span></span>
@@ -3017,14 +3038,14 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb30-457"><a href="#cb30-457" aria-hidden="true" tabindex="-1"></a>accepted <span class="op">=</span> np.zeros(N, dtype<span class="op">=</span><span class="bu">bool</span>)</span>
 <span id="cb30-458"><a href="#cb30-458" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb30-459"><a href="#cb30-459" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-460"><a href="#cb30-460" aria-hidden="true" tabindex="-1"></a>| Setting | Value |</span>
-<span id="cb30-461"><a href="#cb30-461" aria-hidden="true" tabindex="-1"></a>|---------|-------|</span>
-<span id="cb30-462"><a href="#cb30-462" aria-hidden="true" tabindex="-1"></a>| Total iterations ($N$) | 20,000 |</span>
-<span id="cb30-463"><a href="#cb30-463" aria-hidden="true" tabindex="-1"></a>| Burn-in ($N_{\text{burn}}$) | 5,000 |</span>
-<span id="cb30-464"><a href="#cb30-464" aria-hidden="true" tabindex="-1"></a>| Final samples | 15,000 |</span>
-<span id="cb30-465"><a href="#cb30-465" aria-hidden="true" tabindex="-1"></a>| Initial proposal $\Sigma$ | diag(0.0003, 0.0003, 0.0003, 0.01) |</span>
-<span id="cb30-466"><a href="#cb30-466" aria-hidden="true" tabindex="-1"></a>| Target acceptance | 20–40% |</span>
-<span id="cb30-467"><a href="#cb30-467" aria-hidden="true" tabindex="-1"></a>| Adaptive tuning | Every 500 iterations |</span>
+<span id="cb30-460"><a href="#cb30-460" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Setting <span class="pp">|</span> Value <span class="pp">|</span></span>
+<span id="cb30-461"><a href="#cb30-461" aria-hidden="true" tabindex="-1"></a><span class="pp">|---------|-------|</span></span>
+<span id="cb30-462"><a href="#cb30-462" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Total iterations ($N$) <span class="pp">|</span> 20,000 <span class="pp">|</span></span>
+<span id="cb30-463"><a href="#cb30-463" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Burn-in ($N_{\text{burn}}$) <span class="pp">|</span> 5,000 <span class="pp">|</span></span>
+<span id="cb30-464"><a href="#cb30-464" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Final samples <span class="pp">|</span> 15,000 <span class="pp">|</span></span>
+<span id="cb30-465"><a href="#cb30-465" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Initial proposal $\Sigma$ <span class="pp">|</span> diag(0.0003, 0.0003, 0.0003, 0.01) <span class="pp">|</span></span>
+<span id="cb30-466"><a href="#cb30-466" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Target acceptance <span class="pp">|</span> 20–40% <span class="pp">|</span></span>
+<span id="cb30-467"><a href="#cb30-467" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Adaptive tuning <span class="pp">|</span> Every 500 iterations <span class="pp">|</span></span>
 <span id="cb30-468"><a href="#cb30-468" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-469"><a href="#cb30-469" aria-hidden="true" tabindex="-1"></a>: MCMC hyperparameters {#tbl-mcmc-settings}</span>
 <span id="cb30-470"><a href="#cb30-470" aria-hidden="true" tabindex="-1"></a></span>
@@ -3264,19 +3285,19 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb30-714"><a href="#cb30-714" aria-hidden="true" tabindex="-1"></a>**KL Divergence Objective.** The optimal approximation minimises the Kullback-Leibler divergence:</span>
 <span id="cb30-715"><a href="#cb30-715" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-716"><a href="#cb30-716" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb30-717"><a href="#cb30-717" aria-hidden="true" tabindex="-1"></a>\text{KL}(q_\lambda \| p) = \int q_\lambda(\theta) \log \frac{q_\lambda(\theta)}{p(\theta \mid y_{1:T})} d\theta = \mathbb{E}_{q_\lambda}\left[\log q_\lambda(\theta) - \log p(\theta \mid y_{1:T})\right]</span>
+<span id="cb30-717"><a href="#cb30-717" aria-hidden="true" tabindex="-1"></a>\text{KL}(q_\lambda <span class="sc">\|</span> p) = \int q_\lambda(\theta) \log \frac{q_\lambda(\theta)}{p(\theta \mid y_{1:T})} d\theta = \mathbb{E}_{q_\lambda}\left[\log q_\lambda(\theta) - \log p(\theta \mid y_{1:T})\right]</span>
 <span id="cb30-718"><a href="#cb30-718" aria-hidden="true" tabindex="-1"></a>$$</span>
 <span id="cb30-719"><a href="#cb30-719" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-720"><a href="#cb30-720" aria-hidden="true" tabindex="-1"></a>Since $p(\theta \mid y_{1:T}) = \frac{p(y_{1:T}, \theta)}{p(y_{1:T})}$, we have:</span>
 <span id="cb30-721"><a href="#cb30-721" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-722"><a href="#cb30-722" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb30-723"><a href="#cb30-723" aria-hidden="true" tabindex="-1"></a>\text{KL}(q_\lambda \| p) = \mathbb{E}_{q_\lambda}\left[\log q_\lambda(\theta) - \log p(y_{1:T}, \theta)\right] + \log p(y_{1:T})</span>
+<span id="cb30-723"><a href="#cb30-723" aria-hidden="true" tabindex="-1"></a>\text{KL}(q_\lambda <span class="sc">\|</span> p) = \mathbb{E}_{q_\lambda}\left[\log q_\lambda(\theta) - \log p(y_{1:T}, \theta)\right] + \log p(y_{1:T})</span>
 <span id="cb30-724"><a href="#cb30-724" aria-hidden="true" tabindex="-1"></a>$$</span>
 <span id="cb30-725"><a href="#cb30-725" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-726"><a href="#cb30-726" aria-hidden="true" tabindex="-1"></a>Rearranging:</span>
 <span id="cb30-727"><a href="#cb30-727" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-728"><a href="#cb30-728" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb30-729"><a href="#cb30-729" aria-hidden="true" tabindex="-1"></a>\log p(y_{1:T}) = \text{KL}(q_\lambda \| p) + \underbrace{\mathbb{E}_{q_\lambda}\left[\log p(y_{1:T}, \theta) - \log q_\lambda(\theta)\right]}_{\mathcal{L}(\lambda) \text{ (ELBO)}}</span>
+<span id="cb30-729"><a href="#cb30-729" aria-hidden="true" tabindex="-1"></a>\log p(y_{1:T}) = \text{KL}(q_\lambda <span class="sc">\|</span> p) + \underbrace{\mathbb{E}_{q_\lambda}\left[\log p(y_{1:T}, \theta) - \log q_\lambda(\theta)\right]}_{\mathcal{L}(\lambda) \text{ (ELBO)}}</span>
 <span id="cb30-730"><a href="#cb30-730" aria-hidden="true" tabindex="-1"></a>$$</span>
 <span id="cb30-731"><a href="#cb30-731" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-732"><a href="#cb30-732" aria-hidden="true" tabindex="-1"></a>Since $\log p(y_{1:T})$ is constant and $\text{KL} \geq 0$, maximising the **Evidence Lower Bound (ELBO)** $\mathcal{L}(\lambda)$ is equivalent to minimising KL divergence.</span>
@@ -3373,7 +3394,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb30-823"><a href="#cb30-823" aria-hidden="true" tabindex="-1"></a><span class="ss">     - </span>**Accumulate:** $g_\mu \leftarrow g_\mu + g_\mu^{(s)}$, $g_\sigma \leftarrow g_\sigma + g_\sigma^{(s)}$</span>
 <span id="cb30-824"><a href="#cb30-824" aria-hidden="true" tabindex="-1"></a><span class="ss">     - </span>**Accumulate:** ELBO $\leftarrow$ ELBO $+ (\ell^{(s)} + p^{(s)} - q^{(s)})$</span>
 <span id="cb30-825"><a href="#cb30-825" aria-hidden="true" tabindex="-1"></a><span class="ss">   - </span>**Average:** $g_\mu \leftarrow g_\mu / S$, $g_\sigma \leftarrow g_\sigma / S$</span>
-<span id="cb30-826"><a href="#cb30-826" aria-hidden="true" tabindex="-1"></a><span class="ss">   - </span>**Clip gradients:** if $\|g\| &gt; 10^3$, scale down</span>
+<span id="cb30-826"><a href="#cb30-826" aria-hidden="true" tabindex="-1"></a><span class="ss">   - </span>**Clip gradients:** if $<span class="sc">\|</span>g<span class="sc">\|</span> &gt; 10^3$, scale down</span>
 <span id="cb30-827"><a href="#cb30-827" aria-hidden="true" tabindex="-1"></a><span class="ss">   - </span>**ADAM update** for $\mu_q$ and $\log\sigma_q$ (JIT-compiled)</span>
 <span id="cb30-828"><a href="#cb30-828" aria-hidden="true" tabindex="-1"></a><span class="ss">   - </span>**Early stopping:** if ELBO converged (patience 20, check from iteration 30)</span>
 <span id="cb30-829"><a href="#cb30-829" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Return:** $\mu_q^* = \mu_q$, $\sigma_q^* = \exp(\log\sigma_q)$</span>
@@ -3847,18 +3868,18 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb30-1311"><a href="#cb30-1311" aria-hidden="true" tabindex="-1"></a>ax1.plot(y, color<span class="op">=</span><span class="st">'gray'</span>, linewidth<span class="op">=</span><span class="fl">0.5</span>, label<span class="op">=</span><span class="st">'Returns'</span>)</span>
 <span id="cb30-1312"><a href="#cb30-1312" aria-hidden="true" tabindex="-1"></a>ax1.plot(mu_q[<span class="dv">0</span>] <span class="op">+</span> <span class="dv">2</span> <span class="op">*</span> sigma_vb, <span class="st">'r--'</span>, linewidth<span class="op">=</span><span class="dv">1</span>, label<span class="op">=</span><span class="st">'+2σ'</span>)</span>
 <span id="cb30-1313"><a href="#cb30-1313" aria-hidden="true" tabindex="-1"></a>ax1.plot(mu_q[<span class="dv">0</span>] <span class="op">-</span> <span class="dv">2</span> <span class="op">*</span> sigma_vb, <span class="st">'r--'</span>, linewidth<span class="op">=</span><span class="dv">1</span>, label<span class="op">=</span><span class="st">'-2σ'</span>)</span>
-<span id="cb30-1314"><a href="#cb30-1314" aria-hidden="true" tabindex="-1"></a>ax1.set_title(<span class="vs">r"Returns with $\pm 2\sigma_t$ (VB)"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
+<span id="cb30-1314"><a href="#cb30-1314" aria-hidden="true" tabindex="-1"></a>ax1.set_title(<span class="vs">r"Returns with </span><span class="dv">$</span><span class="er">\</span><span class="vs">pm 2</span><span class="dv">\s</span><span class="vs">igma_t</span><span class="dv">$</span><span class="vs"> </span><span class="kw">(</span><span class="vs">VB</span><span class="kw">)</span><span class="vs">"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
 <span id="cb30-1315"><a href="#cb30-1315" aria-hidden="true" tabindex="-1"></a>ax1.set_xlabel(<span class="st">"Time"</span>)</span>
-<span id="cb30-1316"><a href="#cb30-1316" aria-hidden="true" tabindex="-1"></a>ax1.set_ylabel(<span class="vs">r"$y_t$"</span>)</span>
+<span id="cb30-1316"><a href="#cb30-1316" aria-hidden="true" tabindex="-1"></a>ax1.set_ylabel(<span class="vs">r"</span><span class="dv">$</span><span class="vs">y_t</span><span class="dv">$</span><span class="vs">"</span>)</span>
 <span id="cb30-1317"><a href="#cb30-1317" aria-hidden="true" tabindex="-1"></a>ax1.legend(loc<span class="op">=</span><span class="st">'upper right'</span>, fontsize<span class="op">=</span><span class="dv">8</span>)</span>
 <span id="cb30-1318"><a href="#cb30-1318" aria-hidden="true" tabindex="-1"></a>ax1.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb30-1319"><a href="#cb30-1319" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-1320"><a href="#cb30-1320" aria-hidden="true" tabindex="-1"></a><span class="co"># Volatility series</span></span>
 <span id="cb30-1321"><a href="#cb30-1321" aria-hidden="true" tabindex="-1"></a>ax2 <span class="op">=</span> axes[<span class="dv">0</span>, <span class="dv">1</span>]</span>
 <span id="cb30-1322"><a href="#cb30-1322" aria-hidden="true" tabindex="-1"></a>ax2.plot(sigma_vb, <span class="st">'b-'</span>, linewidth<span class="op">=</span><span class="dv">1</span>)</span>
-<span id="cb30-1323"><a href="#cb30-1323" aria-hidden="true" tabindex="-1"></a>ax2.set_title(<span class="vs">r"Volatility $\sigma_t$ (VB)"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
+<span id="cb30-1323"><a href="#cb30-1323" aria-hidden="true" tabindex="-1"></a>ax2.set_title(<span class="vs">r"Volatility </span><span class="dv">$\s</span><span class="vs">igma_t</span><span class="dv">$</span><span class="vs"> </span><span class="kw">(</span><span class="vs">VB</span><span class="kw">)</span><span class="vs">"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
 <span id="cb30-1324"><a href="#cb30-1324" aria-hidden="true" tabindex="-1"></a>ax2.set_xlabel(<span class="st">"Time"</span>)</span>
-<span id="cb30-1325"><a href="#cb30-1325" aria-hidden="true" tabindex="-1"></a>ax2.set_ylabel(<span class="vs">r"$\sigma_t$"</span>)</span>
+<span id="cb30-1325"><a href="#cb30-1325" aria-hidden="true" tabindex="-1"></a>ax2.set_ylabel(<span class="vs">r"</span><span class="dv">$\s</span><span class="vs">igma_t</span><span class="dv">$</span><span class="vs">"</span>)</span>
 <span id="cb30-1326"><a href="#cb30-1326" aria-hidden="true" tabindex="-1"></a>ax2.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb30-1327"><a href="#cb30-1327" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-1328"><a href="#cb30-1328" aria-hidden="true" tabindex="-1"></a><span class="co"># Standardised residuals</span></span>
@@ -3868,7 +3889,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb30-1332"><a href="#cb30-1332" aria-hidden="true" tabindex="-1"></a>ax3.axhline(<span class="op">-</span><span class="dv">2</span>, color<span class="op">=</span><span class="st">'r'</span>, linestyle<span class="op">=</span><span class="st">'--'</span>, linewidth<span class="op">=</span><span class="dv">1</span>)</span>
 <span id="cb30-1333"><a href="#cb30-1333" aria-hidden="true" tabindex="-1"></a>ax3.set_title(<span class="st">"Standardised residuals (VB)"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
 <span id="cb30-1334"><a href="#cb30-1334" aria-hidden="true" tabindex="-1"></a>ax3.set_xlabel(<span class="st">"Time"</span>)</span>
-<span id="cb30-1335"><a href="#cb30-1335" aria-hidden="true" tabindex="-1"></a>ax3.set_ylabel(<span class="vs">r"$\epsilon_t$"</span>)</span>
+<span id="cb30-1335"><a href="#cb30-1335" aria-hidden="true" tabindex="-1"></a>ax3.set_ylabel(<span class="vs">r"</span><span class="dv">$</span><span class="er">\</span><span class="vs">epsilon_t</span><span class="dv">$</span><span class="vs">"</span>)</span>
 <span id="cb30-1336"><a href="#cb30-1336" aria-hidden="true" tabindex="-1"></a>ax3.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb30-1337"><a href="#cb30-1337" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-1338"><a href="#cb30-1338" aria-hidden="true" tabindex="-1"></a><span class="co"># Residual histogram vs N(0,1)</span></span>
@@ -3877,7 +3898,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb30-1341"><a href="#cb30-1341" aria-hidden="true" tabindex="-1"></a>xgrid <span class="op">=</span> np.linspace(np.<span class="bu">min</span>(eps_vb), np.<span class="bu">max</span>(eps_vb), <span class="dv">200</span>)</span>
 <span id="cb30-1342"><a href="#cb30-1342" aria-hidden="true" tabindex="-1"></a>ax4.plot(xgrid, norm.pdf(xgrid, <span class="dv">0</span>, <span class="dv">1</span>), <span class="st">'r-'</span>, linewidth<span class="op">=</span><span class="fl">1.5</span>, label<span class="op">=</span><span class="st">'N(0,1)'</span>)</span>
 <span id="cb30-1343"><a href="#cb30-1343" aria-hidden="true" tabindex="-1"></a>ax4.set_title(<span class="st">"VB residuals vs N(0,1)"</span>, fontsize<span class="op">=</span><span class="dv">11</span>)</span>
-<span id="cb30-1344"><a href="#cb30-1344" aria-hidden="true" tabindex="-1"></a>ax4.set_xlabel(<span class="vs">r"$\epsilon_t$"</span>)</span>
+<span id="cb30-1344"><a href="#cb30-1344" aria-hidden="true" tabindex="-1"></a>ax4.set_xlabel(<span class="vs">r"</span><span class="dv">$</span><span class="er">\</span><span class="vs">epsilon_t</span><span class="dv">$</span><span class="vs">"</span>)</span>
 <span id="cb30-1345"><a href="#cb30-1345" aria-hidden="true" tabindex="-1"></a>ax4.set_ylabel(<span class="st">"Density"</span>)</span>
 <span id="cb30-1346"><a href="#cb30-1346" aria-hidden="true" tabindex="-1"></a>ax4.legend(loc<span class="op">=</span><span class="st">'upper right'</span>)</span>
 <span id="cb30-1347"><a href="#cb30-1347" aria-hidden="true" tabindex="-1"></a>ax4.grid(<span class="va">True</span>, alpha<span class="op">=</span><span class="fl">0.3</span>)</span>
@@ -4002,10 +4023,10 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb30-1468"><a href="#cb30-1468" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-1469"><a href="#cb30-1469" aria-hidden="true" tabindex="-1"></a>The VB posteriors (red) are Gaussian **by construction**—this is not a bug but a fundamental property of mean-field VB. We explicitly chose $q_\lambda(\theta) = \mathcal{N}(\mu_q, \text{diag}(\sigma_q^2))$, so the algorithm only optimises the mean and variance of a Gaussian approximation.</span>
 <span id="cb30-1470"><a href="#cb30-1470" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-1471"><a href="#cb30-1471" aria-hidden="true" tabindex="-1"></a>| Method | Posterior Shape | What It Captures |</span>
-<span id="cb30-1472"><a href="#cb30-1472" aria-hidden="true" tabindex="-1"></a>|--------|-----------------|------------------|</span>
-<span id="cb30-1473"><a href="#cb30-1473" aria-hidden="true" tabindex="-1"></a>| MCMC | Arbitrary (true posterior) | Skewness, multimodality, correlations |</span>
-<span id="cb30-1474"><a href="#cb30-1474" aria-hidden="true" tabindex="-1"></a>| Mean-field VB | Always Gaussian | Only location and scale |</span>
+<span id="cb30-1471"><a href="#cb30-1471" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Method <span class="pp">|</span> Posterior Shape <span class="pp">|</span> What It Captures <span class="pp">|</span></span>
+<span id="cb30-1472"><a href="#cb30-1472" aria-hidden="true" tabindex="-1"></a><span class="pp">|--------|-----------------|------------------|</span></span>
+<span id="cb30-1473"><a href="#cb30-1473" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> MCMC <span class="pp">|</span> Arbitrary (true posterior) <span class="pp">|</span> Skewness, multimodality, correlations <span class="pp">|</span></span>
+<span id="cb30-1474"><a href="#cb30-1474" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Mean-field VB <span class="pp">|</span> Always Gaussian <span class="pp">|</span> Only location and scale <span class="pp">|</span></span>
 <span id="cb30-1475"><a href="#cb30-1475" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-1476"><a href="#cb30-1476" aria-hidden="true" tabindex="-1"></a>The MCMC densities (blue dashed) reveal the **true posterior shape**—notice $\beta$ may show slight asymmetry and $\omega$ can be skewed. VB cannot capture these features. This is the classic bias-variance tradeoff: VB is faster but underestimates uncertainty and ignores parameter correlations.</span>
 <span id="cb30-1477"><a href="#cb30-1477" aria-hidden="true" tabindex="-1"></a></span>
@@ -4085,16 +4106,16 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb30-1555"><a href="#cb30-1555" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-1556"><a href="#cb30-1556" aria-hidden="true" tabindex="-1"></a>**5. Pre-allocated Memory.** All $3000 \times 10 \times 4$ random numbers $\epsilon^{(t,s)} \sim \mathcal{N}(0, I_4)$ are generated once before the optimisation loop, eliminating per-iteration memory allocation.</span>
 <span id="cb30-1557"><a href="#cb30-1557" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-1558"><a href="#cb30-1558" aria-hidden="true" tabindex="-1"></a>| Component | Choice | Benefit |</span>
-<span id="cb30-1559"><a href="#cb30-1559" aria-hidden="true" tabindex="-1"></a>|-----------|--------|---------|</span>
-<span id="cb30-1560"><a href="#cb30-1560" aria-hidden="true" tabindex="-1"></a>| Gradient estimator | Reparameterisation + finite differences | Low variance with 10 MC samples |</span>
-<span id="cb30-1561"><a href="#cb30-1561" aria-hidden="true" tabindex="-1"></a>| Inner loop | <span class="in">`prange`</span> parallel | Multi-core speedup |</span>
-<span id="cb30-1562"><a href="#cb30-1562" aria-hidden="true" tabindex="-1"></a>| ADAM update | <span class="in">`@njit`</span> compiled | Minimal Python overhead |</span>
-<span id="cb30-1563"><a href="#cb30-1563" aria-hidden="true" tabindex="-1"></a>| Convergence | Early stopping (patience 20) | Avoids unnecessary iterations |</span>
-<span id="cb30-1564"><a href="#cb30-1564" aria-hidden="true" tabindex="-1"></a>| Random numbers | Pre-allocated array | No per-iteration allocation |</span>
+<span id="cb30-1558"><a href="#cb30-1558" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Component <span class="pp">|</span> Choice <span class="pp">|</span> Benefit <span class="pp">|</span></span>
+<span id="cb30-1559"><a href="#cb30-1559" aria-hidden="true" tabindex="-1"></a><span class="pp">|-----------|--------|---------|</span></span>
+<span id="cb30-1560"><a href="#cb30-1560" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gradient estimator <span class="pp">|</span> Reparameterisation + finite differences <span class="pp">|</span> Low variance with 10 MC samples <span class="pp">|</span></span>
+<span id="cb30-1561"><a href="#cb30-1561" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Inner loop <span class="pp">|</span> <span class="in">`prange`</span> parallel <span class="pp">|</span> Multi-core speedup <span class="pp">|</span></span>
+<span id="cb30-1562"><a href="#cb30-1562" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> ADAM update <span class="pp">|</span> <span class="in">`@njit`</span> compiled <span class="pp">|</span> Minimal Python overhead <span class="pp">|</span></span>
+<span id="cb30-1563"><a href="#cb30-1563" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Convergence <span class="pp">|</span> Early stopping (patience 20) <span class="pp">|</span> Avoids unnecessary iterations <span class="pp">|</span></span>
+<span id="cb30-1564"><a href="#cb30-1564" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Random numbers <span class="pp">|</span> Pre-allocated array <span class="pp">|</span> No per-iteration allocation <span class="pp">|</span></span>
 <span id="cb30-1565"><a href="#cb30-1565" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-1566"><a href="#cb30-1566" aria-hidden="true" tabindex="-1"></a>: VB implementation choices {#tbl-vb-opt}</span>
-</code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 

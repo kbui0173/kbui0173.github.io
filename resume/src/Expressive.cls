@@ -132,7 +132,7 @@
     \vspace{\spacesmall}
 }
 \newcommand{\degree}[6]{%
-    \noindent\textbf{#1} (#2) \hfill #4 \par
+    \noindent\textbf{\large #1} (#2) \hfill #4 \par
     \noindent\textit{#3} \hfill \textbf{#5} \vspace{\spacesmall}\par
     #6
 }
